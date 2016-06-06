@@ -19,7 +19,7 @@ exports.test = function () {
 	});
 	conn.end();
 };
-
+//
 exports.q = function (sql,func) {
 	var rtn;
 	conn.query(sql, function(err, rows, fields) {
