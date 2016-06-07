@@ -206,6 +206,7 @@ Ext.define('Ext.ux.picker.Time', {
     setValue: function( value, animated ) {
         if ( Ext.isDate( value ) ) {
             var useMeridiem=Ext.Array.contains( this.getSlotOrder(), 'meridiem' );
+			useMeridiem = false;
             value = {
                 hour  : useMeridiem && value.getHours()==0 ? 12 : value.getHours(),
                 minute: value.getMinutes(),
@@ -221,7 +222,8 @@ Ext.define('Ext.ux.picker.Time', {
             items = this.getItems().items,
             ln = items.length,
             date = new Date(),
-            useMeridiem=Ext.Array.contains( this.getSlotOrder(), 'meridiem' ),
+            //useMeridiem=Ext.Array.contains( this.getSlotOrder(), 'meridiem' ),
+			useMeridiem = false,
             hour, minute, second, millisecond, meridiem, item, i;
         // get slot values
         for (i = 0; i < ln; i++) {

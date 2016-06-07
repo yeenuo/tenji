@@ -20,3 +20,19 @@ exports.db ={
     database:'japan',
     port: 3306
 };
+
+exports.status ={
+	f:'yellow',//future未来
+    d:'green',//done 已完成
+	u:'red',//undo 未做
+	n:'gray'//NoNeed 不需要
+};
+
+
+exports.localdb ={
+    host: '127.0.0.1',
+    user: 'root',
+    password: 'tenji123',
+    database:'WK',
+    port: 3306
+};

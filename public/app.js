@@ -31,6 +31,25 @@ var app = Ext.application({
      */
     launch: function() {
     	var me = this;
+		this.tool = new Tool();
+		me.rest_data = [
+						{text: '--',  value: '0'},
+                        {text: '全休',  value: '1'},
+                        {text: '午前休', value: '2'},
+						{text: '午後休', value: '3'},
+						{text: '遅刻', value: '4'},
+						{text: '早退', value: '5'},
+						{text: 'その他', value: '6'}
+                    ];
+		me.reason_data = [
+						{text: '--',  value: '0'},
+                        {text: '私用',  value: '1'},
+                        {text: '体調不良', value: '2'},
+						{text: '帰社', value: '3'},
+						{text: '帰国', value: '4'},
+						{text: '看病', value: '5'},
+						{text: 'その他', value: '6'}
+                    ];
     	 var rentPanel= Ext.create('Ext.Panel', {
 				id : 'panel_rent',
 				layout : 'hbox',
@@ -68,7 +87,7 @@ var app = Ext.application({
     	        }
     	    ]
     	});
-			Ext.getCmp('panel_main').setActiveItem( 2);
+			//Ext.getCmp('panel_main').setActiveItem( 2);
     },
     getIndex:function(){
     	var me=this;
@@ -82,6 +101,20 @@ var app = Ext.application({
     	};
     	
     },
+	getComboText:function(key,objs){
+		for(var i = 0;i<objs.length;i++)
+		{
+			var obj = objs[i];
+			if(obj.value == key)
+			{
+				return obj.text;
+			}
+		}
+		return null;
+	},
+	test:function(i){
+		return i;
+	},
 	getConfig:function(){
 		return {
          title: '設定',
@@ -234,6 +267,7 @@ var app = Ext.application({
 	},
     getInput:function(){
     	var dt = Ext.Date.add(new Date(), Ext.Date.DAY, 1);
+		var me = this;
     	return {
     		    title: '記入',
 	            iconCls: 'user',
@@ -241,21 +275,24 @@ var app = Ext.application({
 				layout : 'vbox',
 	            items:[	
 					{
-                    xtype: 'datepickerfield',
+                    xtype: 'textfield',
                     label: '日付:',
-					name : 'starttime',
+					id : 'date',
+					name : 'date',
                     labelWidth : '35% ',
-                    value:new Date()
+                   readOnly:true
                 },
 				{
                     xtype: 'timepickerfield',
                     label: '開始時間:',
+					id : 'starttime',
 					name : 'starttime',
                     labelWidth : '35% ',
                     value:new Date()
                 },{
                     xtype: 'timepickerfield',
                     label: '終了時間:',
+					id : 'endtime',
 					name : 'endtime',
                     labelWidth : '35%' ,
 					slotOrder: ['hour','minute'],
@@ -264,41 +301,31 @@ var app = Ext.application({
 					xtype : 'textfield',
 					labelWidth : '35%',
 					label : '勤務時間:',
+					id : 'worktime',
 					name : 'time',
 					value : '1',
 					readOnly:true
 				},{
+					id : 'rest',
+					name:'rest',
                     xtype: 'selectfield',
                     label: '休み区分',
                     labelWidth : '35%',
-                    options: [
-						{text: '--',  value: '0'},
-                        {text: '全休',  value: '1'},
-                        {text: '午前休', value: '2'},
-						{text: '午後休', value: '3'},
-						{text: '遅刻', value: '4'},
-						{text: '早退', value: '5'},
-						{text: 'その他', value: '6'}
-                    ]
+                    options: me.rest_data
                 },
 				{
+					id : 'reason',
+					name:'reason',
                     xtype: 'selectfield',
                     label: '理由区分',
                     labelWidth : '35%',
-                    options: [
-						{text: '--',  value: '0'},
-                        {text: '私用',  value: '1'},
-                        {text: '体調不良', value: '2'},
-						{text: '帰社', value: '3'},
-						{text: '帰国', value: '4'},
-						{text: '看病', value: '5'},
-						{text: 'その他', value: '6'}
-                    ]
+                    options: me.reason_data
                 },{
+					id : 'memo',
+					name:'memo',
 					xtype : 'textfield',
 					label : '備考:',
-					labelWidth : '35%',
-					value : ' '
+					labelWidth : '35%'
 				}, 
 				{
 					xtype : 'button',
@@ -317,14 +344,29 @@ var app = Ext.application({
 				} ]
 	        };
     },  
+	loadData:function(data)
+	{
+		var fields = ["date","starttime","endtime","worktime","rest","reason","memo"];
+		for(var i=0;i<fields.length;i++)
+		{
+			Ext.getCmp(fields[i]).setValue(data[fields[i]]);
+		}
+		 var myDate = this.tool.date(data["date"]); 
+		 this.tool.setHM(myDate,data["starttime"]);
+		 Ext.getCmp("starttime").setValue(myDate);
+		 this.tool.setHM(myDate,data["endtime"]);
+		 Ext.getCmp("endtime").setValue(myDate);
+		
+	},
     getListConfiguration: function() {
+		var me = this;
         //create a store instance
         var store = Ext.create('Ext.data.Store', {
             //give the store some fields
-            fields: ['id','title','url','memo','price','aprice'],
+            fields: ['id','date','starttime','endtime','worktime','rest','reason','status','memo'],
 
             //filter the data using the firstName field
-            sorters: 'id',
+            sorters: 'date',
             //autoload the data from the server
             autoLoad: true,
        //     data: [     //直接把数组作为数据配置项。这些数据会被加工处理，最终形成record数组。
@@ -333,14 +375,14 @@ var app = Ext.application({
             //the local contacts.json file
             proxy: {
             	type: 'ajax',
-            	url: '../../wk/3/list',
+            	url: '../../wk/list',
     	        reader: {
     	        	type: 'json',
     	        	root: 'data'
     	        },
     	                extraParams: {
-    	                	'sql':'boat', 
-    	                	'option':'select' 
+    	                	'user':'1', 
+    	                	'month':'201606' 
     	    	}
             }
         });
@@ -350,12 +392,25 @@ var app = Ext.application({
             scrollable: {
                 direction: 'vertical'
             },
-            itemHeight :30,
-            itemTpl: '<table style="margin-bottom:-0.4em" border=0><tr><td width="100" height="5"  valign="top" rowSpan = 3 style="padding:0px"><img src="{url}"  height="75"   width="100"/>  </td><td><b>{title}</b></td>  </tr><tr><td>{memo}</td></tr><tr><td  style="padding:0px"><table width="100%" border=0  style="margin-bottom:0em" ><tr><td width="80">单人：{price} </td><td> 整船：{aprice}</td></tr></table></td></tr></table>',
+				variableHeights: true,
+            itemHeight  :10,
+            itemTpl: new Ext.XTemplate(
+				//'<table><tr><td height="40" bgcolor ="{status}">{[this.date(values.date)]}【{starttime}~{endtime}】:{worktime} ({[this.rest(values.rest)]})</td></tr></table>',
+				'<div  style="background-color:{status};width:100%;height:100%">{[this.date(values.date)]}【{starttime}~{endtime}】:{worktime} ({[this.rest(values.rest)]})</div>',
+				{
+					rest: function(v){
+					   return me.tool.getListText(v,me.rest_data);
+					},
+					date:function(v){
+					   return me.tool.day(v)+"("+me.tool.jweek(v)+")";
+					}
+				}
+			),
             listeners: {
                 selectionchange:function (view, records) {
                 	var data=records[0].data;
-                	Ext.getCmp('panel_main').setActiveItem( 1 );
+                	Ext.getCmp('panel_main').setActiveItem(1);
+					me.loadData(data);
                 }},
                 //bind the store to this list
                 store: store

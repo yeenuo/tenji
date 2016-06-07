@@ -60,6 +60,10 @@
         {
             "path": "js/field/TimePicker.js",
             "update": "delta"
+        },
+        {
+            "path": "js/tool.js",
+            "update": "delta"
         }
     ],
 
@@ -86,19 +90,19 @@
             "update": "delta"
         },
         {
-            "path": "../resources/css/wp.css",
+            "path": "resources/css/wp.css",
             "platform": ["ie10", "windows"],
             "theme": "Windows",
             "update": "delta"
         },
         {
-            "path": "../resources/css/cupertino.css",
+            "path": "resources/css/cupertino.css",
             "platform": ["ios"],
             "theme": "Cupertino",
             "update": "delta"
         },
         {
-            "path": "../resources/css/mountainview.css",
+            "path": "resources/css/mountainview.css",
             "platform": ["android"],
             "theme": "MountainView",
             "update": "delta"

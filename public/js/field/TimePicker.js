@@ -40,7 +40,7 @@ Ext.define( 'Ext.ux.field.TimePicker', {
          * @cfg {String} [dateFormat=Ext.util.Format.defaultDateFormat] The format to be used when displaying the date in this field.
          * Accepts any valid date format. You can view formats over in the {@link Ext.Date} documentation.
          */
-        dateFormat: 'h:i',
+        dateFormat: 'H:i',//"h:i" 12小时制
         /**
          * @cfg {String} default time
          * The default time to be used when initilizing the field

@@ -58,13 +58,16 @@ app.use(render({
  */
 var router = urlrouter(function (app) {
   app.get('/', wk.app);
+  app.get('/wk/list', wk.list);
+  app.post('/wk/list', wk.list);
   app.post('/wk/new', wk.new);//传递时地址转向
   app.get('/wk/:id', wk.view);
   app.get('/wk/:id/edit', wk.edit);
   app.post('/wk/:id/edit', wk.save);
   app.get('/wk/:id/delete', wk.delete);
   app.get('/wk/:id/finish', wk.finish);
-  app.get('/wk/:id/list', wk.list);
+  //app.get('/wk/:id/list', wk.list);
+  //app.post('/wk/list', wk.list);
 });
 app.use(router);
 
