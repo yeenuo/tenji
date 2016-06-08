@@ -42,8 +42,8 @@ app.use(session({
 
 app.use(function(req,res,next){
     if (!req.session.user) {
-		
-        if((req.url.indexOf("/login") == 0)||(req.url=="/")){//以login作为开始
+		var s = req.url.substring(0,6);
+        if((s == "/login")||(s == "/excel")||(s == "/rspwd")||(req.url=="")||(req.url=="/")){//以login作为开始
 			console.log('Go Login');
             next();//如果请求的地址是登录则通过，进行下一个请求
         }
@@ -82,6 +82,11 @@ var router = urlrouter(function (app) {
   app.get('/wk/do', wk.data);
   app.post('/wk/do', wk.data);
   app.post('/login', wk.login);
+  app.post('/pwd', wk.pwd)//修改密码,相关
+  app.post('/excel', wk.excel)//修改密码,相关
+  app.get('/excel', wk.excel)//修改密码,相关
+  app.post('/rspwd', wk.pwd)//重置密码,相关
+  app.post('/config', wk.config)//设置
   app.get('/wk/:id', wk.view);
   app.get('/wk/:id/delete', wk.delete);
 });

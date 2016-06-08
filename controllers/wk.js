@@ -9,7 +9,8 @@
 /**
  * Module dependencies.
  */
-
+var excel = require("../lib/excel.js");
+var nodemailer = require("nodemailer");
 var config = require('../config');
 var db = require('../db');
 var crypto = require('crypto');
@@ -17,7 +18,7 @@ exports.app = function (req, res, next) {
 	console.log("app");
 	res.redirect('/public/index.html');
 };
-
+ 
 exports.new = function (req, res, next) {
   var title = req.body.title || '';
   title = title.trim();
@@ -33,10 +34,241 @@ exports.new = function (req, res, next) {
 };
 
 
+exports.excel = function(req, res, next)
+{
+	 var a = exports.exportExcel(req,res);
+};
+
+
+
+exports.exportExcel=function(req,res){
+		var conf ={};
+		conf.cols = [
+			{caption:'string', type:'string'},
+			{caption:'date', type:'string'},
+			{caption:'bool', type:'bool'},
+			{caption:'number', type:'number'}
+		];
+		conf.rows = [
+			['pi', '2015-06-29', true, 3.14],
+			["e", '2015-06-29', false, 2.7182]
+		];
+		var filename ="excel.xlsx";
+		res.setHeader('Content-Disposition', 'attachment; filename='+encodeURIComponent(filename));
+		excel.createExcel({
+			data:conf,
+			savePath:"public/file/excel",
+			filename:filename,
+			cb:function(path){
+				excel.download(path,req, res,true);
+			}
+		});
+		 
+	}
+
+
+exports.mail  = function(obj)
+{
+	var transport = nodemailer.createTransport('smtps://'+config.mail.user+':'+config.mail.pass+'@'+config.mail.host);
+		transport.sendMail({
+		from : obj.from,
+		to : obj.to,
+		subject: obj.subject,
+		generateTextFromHTML : true,
+		html : obj.html
+		}, 
+		function(error, response){
+			if(error){
+				console.log(error);
+			}else{//发送成功
+				//console.log("Message sent: " + response.message);
+				if(obj.func)
+				{
+					obj.func();
+				}			
+			}
+			transport.close();
+		});
+};
 
 exports.view = function (req, res, next) {
   res.redirect('/');
 };
+
+function rtnInfo(res,info)
+{
+	res.writeHead(200, {"Content-Type": "text/html;charset:utf-8"}); 
+	res.write(info);
+	res.end();
+}
+
+exports.config = function (req, res, next) {
+	var me = this;
+	var data = req.body;
+	var option = data.option;
+	console.log(data);
+	var func = function(rtn)
+	{
+		console.log(rtn);
+		if(rtn.affectedRows == 1)
+		{
+			console.log("success");//post方式用此获得数据
+			res.writeHead(200, {"Content-Type": "text/html;charset:utf-8"}); 
+			if(!isNaN(parseInt(rtn.insertId)))
+			{
+				res.write("{success:true,id:"+rtn.insertId+",option:'a'}");
+			}
+			else
+			{
+				res.write("{success:true,option:'u'}");
+			}		
+			res.end();
+		}
+	};
+	if(option == "q")//查询
+	{
+		var sql  = "SELECT t.spot,t.id wktime,u.id user,s.starttime as cstarttime,s.endtime as cendtime,t.month,t.r0,t.r1,t.r2,t.r3,t.r4,t.r5,t.r6,t.mintime,t.maxtime,s.stime1,s.etime1,s.stime2,s.etime2,s.stime3,s.etime3,s.stime4,s.etime4,s.stime5,s.etime5 ";
+		sql +=" FROM WK.T_WKTIME t left join WK.T_USER u on t.user = u.id left join WK.T_SPOT s on t.spot = s.id where u.id = ? and t.month = ?";
+		var id = req.session.user;
+		var month =data.month;
+		var params = [id,month];
+		console.log(sql);
+		db.q(sql,params,function(rows)
+		{
+			if(rows.length>0)
+			{
+				console.log(JSON.stringify(rows[0]));
+				res.writeHead(200, {"Content-Type": "text/html;charset:utf-8"}); 
+				res.write(JSON.stringify(rows[0]));
+				res.end();
+			}
+			else
+			{
+				res.writeHead(200, {"Content-Type": "text/html;charset:utf-8"}); 
+				res.write("{success:false}");
+				res.end();
+			}
+		});
+	}
+	else
+	{
+		var _table = option.substring(0,2);//表
+		var _do = option.substring(2,3);//操作模式
+		console.log([_table,_do]);
+		if(_table == "wk")
+		{
+			data.table = "`WK`.T_WKTIME";
+		}
+		else
+		{
+			data.table = "`WK`.`T_SPOT`";
+		}
+		if(_do == "i")
+		{
+			db.i(data,func);
+		}
+		else
+		{
+			db.u(data,func);
+		}
+	}
+}
+exports.pwd = function (req, res, next) {
+    var me = this;
+	var data = req.body;
+	var option = data.option;
+	if(option == "c")//修改密码
+	{
+		var sql = "SELECT ID FROM WK.T_USER WHERE ID =? and PASSWORD = ?"
+		var pwd = crypt(data.password);
+		var newPwd = crypt(data.newpassword);
+		var id = req.session.user;
+		console.log(sql);
+		console.log(req.session.user);
+		console.log(pwd);//原有密码
+		console.log(newPwd);//原有密码
+		var params = [id,pwd];
+		db.q(sql,params,function(rows)
+			{	
+				var rtn = "{success:false}"
+				if(rows.length>0)//有数据
+				{
+					var data = {};
+					data.table = "`WK`.`T_USER`";
+					data.id = req.session.user;
+					data.password = newPwd;
+					console.log(data.password)
+					db.u(data,function(rtndata){
+						if(rtndata.affectedRows == 1)
+						{
+									console.log("success")
+									rtn = "{success:true}"
+									console.log(rtn)
+									var obj = {};
+									obj.subject = "修改密码";
+									obj.html = "&lt;p&gt;密码已修改&lt;/p&gt;";
+									obj.from = "天时勤务";
+									obj.to = "javaandnet@gmail.com";
+									exports.mail(obj);
+
+									res.writeHead(200, {"Content-Type": "text/html;charset:utf-8"}); 
+									res.write(rtn);
+									res.end();
+						}
+					});
+				}
+				else
+				{
+					rtn = "{success:false,info:'pwd'}"
+					console.log(rtn)
+					res.writeHead(200, {"Content-Type": "text/html;charset:utf-8"}); 
+					res.write(rtn);
+					res.end();
+				}
+			});
+	}
+	else//重置密码
+	{
+
+		var sql = "SELECT u.ID id,email,no FROM WK.T_USER u inner join WK.T_EMPLOYEE e on u.employee = e.id WHERE e.NO =? and EMAIL = ?"
+		console.log(sql)
+		console.log(data.name)
+		console.log(data.email)
+		var params = [data.name,data.email];
+		db.q(sql,params,function(rows)
+		{
+			if(rows.length>0)
+			{
+				//重置密码
+				var qdata = JSON.parse(JSON.stringify(rows))[0];
+				var pwd= qdata.no+"123";//重置密码
+				var id= qdata.id;//UserId
+					var data = {};
+					data.table = "`WK`.`T_USER`";
+					data.id =  qdata.id;
+					data.password = crypt(pwd);
+					console.log(data.password)
+					db.u(data,function(rtndata){
+						if(rtndata.affectedRows == 1)//更新成功
+						{
+									var obj = {};
+									obj.subject = "重置密码";
+									obj.html = "&lt;p&gt;密码已重置为"+pwd+"&lt;/p&gt;";
+									obj.from = "天时勤务";
+									obj.to = qdata.email;
+									obj.func = rtnInfo(res,"{success:true}");
+									exports.mail(obj);
+						}
+					});
+			}
+			else
+			{
+				rtnInfo(res,"{success:false,info:'no'}");//不存在
+			}
+		});
+
+	}
+}
 
 exports.data = function (req, res, next) {
     var me = this;
@@ -58,8 +290,7 @@ exports.data = function (req, res, next) {
 			else
 			{
 				res.write("{success:true,option:'u'}");
-			}
-			
+			}		
 			res.end();
 		}
 	};
@@ -79,17 +310,15 @@ exports.data = function (req, res, next) {
 		console.log("update:");//post方式用此获得数据
 		console.log(data);//post方式用此获得数据
 		db.u(data,func);
-	}
-	
+	}	
 };
-
 
 exports.login = function (req, res, next) {
 	var me = this;
 	var data = req.body;
 	var name = data.name;
 	var pwd = crypt(data.password);
-	var sql = "SELECT ID,ROLE FROM WK.T_USER WHERE EMPLOYEE =? and PASSWORD = ? and failedcount < ?"
+	var sql = "SELECT u.ID,ROLE,email FROM WK.T_USER u inner join WK.T_EMPLOYEE e on u.employee = e.id WHERE e.NO =? and PASSWORD = ? and failedcount < ?"
     console.log(sql);
 	console.log(name);
 	console.log(pwd);
@@ -123,6 +352,7 @@ exports.list = function (req, res, next) {
 	var params = [month,user];
 
     console.log(sql);
+	console.log(params);
 	db.q(sql,params,function(rows)
 		{	
 			var data = JSON.parse(JSON.stringify(rows));

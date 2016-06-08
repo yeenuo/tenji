@@ -80,8 +80,161 @@ var app = Ext.application({
 			{
 					Ext.getCmp('panel_main').setActiveItem(3);//初次启动，登录页面
 			}
+			else if(value.id=="tab_input"){
+					if(!me.data.date)
+				{
+						Ext.getCmp('panel_main').setActiveItem(0);//当入力数据为空时，List页面
+				}
+
+			}
+
+
+
+
 		});
     },
+	setConfigData:function()
+	{
+		var me = this;
+		var data = {};
+		if(me.spot)
+		{
+			data.id = me.spot;
+			data.option = "stu";//更新
+		}
+		else
+		{
+			data.option = "sti";//添加
+		}
+		
+		fields = ["cstarttime","cendtime","stime1","etime1","stime2","etime2","stime3","etime3","stime4","etime4","stime5","etime5"];
+		for(var i=0;i<fields.length;i++)
+		{
+			var sDate =  new Date(Ext.getCmp(fields[i]).getValue());
+			data[fields[i]] =  Ext.Date.format(sDate,"Hi");
+		}
+		//属性赋值
+		data["starttime"] = data["cstarttime"];
+		delete data.cstarttime;
+		data["endtime"] = data["cendtime"];
+		delete data.cendtime;
+		Ext.Ajax.request({
+			url: '../../config',
+			method :'POST',
+			params: data,
+			success: function(response, opts) {
+				var obj = Ext.decode(response.responseText);
+				var data = obj;
+				me.spot = obj.id;//取得ID
+				me.setWKTime();//更新作业时间
+			},
+		failure: function(response, opts) {
+		  console.log('server-side failure with status code ' + response.status);
+		}
+		});
+
+
+
+	},
+	setWKTime:function()
+	{
+		var me = this;
+		var data = {};
+		//data.spot = me.spot;
+		if(me.wktime)
+		{
+			data.id = me.wktime;
+			data.option = "wku";//更新
+		}
+		else
+		{
+			data.option = "wki";//添加
+		}
+		
+		var fields = ["mintime","maxtime"];
+		for(var i=0;i<fields.length;i++)
+		{
+			data[fields[i]] = Ext.getCmp(fields[i]).getValue();
+		}
+		fields = ["r0","r1","r2","r3","r4","r5","r6"];
+		for(var i=0;i<fields.length;i++)
+		{
+			data[fields[i]] = 0;
+			if(Ext.getCmp(fields[i]).isChecked())
+			{
+				data[fields[i]] = 1;
+			}
+		}
+		data.month = me.month;
+		data.user = me.user;
+		data.spot = me.spot;
+		Ext.Ajax.request({
+			url: '../../config',
+			method :'POST',
+			params: data,
+			success: function(response, opts) {
+				var obj = Ext.decode(response.responseText);
+				var data = obj;
+				me.wktime = obj.id;//取得ID
+				alert(	"success");
+			},
+		failure: function(response, opts) {
+		  console.log('server-side failure with status code ' + response.status);
+		}
+		});
+	},
+	//setSpot
+	getConfigData:function()
+	{
+		var me = this;
+		
+			var data = {month:me.month,option:"q"};
+			Ext.Ajax.request({
+			url: '../../config',
+			method :'POST',
+			params: data,
+			success: function(response, opts) {
+			var obj = Ext.decode(response.responseText);
+			if(obj.success)
+			{
+				var data = obj;
+				me.spot = data.spot;
+				me.wktime = data.wktime;
+
+				var fields = ["mintime","maxtime"];
+				for(var i=0;i<fields.length;i++)
+				{
+					Ext.getCmp(fields[i]).setValue(data[fields[i]]);
+				}
+
+				fields = ["r0","r1","r2","r3","r4","r5","r6"];
+				for(var i=0;i<fields.length;i++)
+				{
+					if(data[fields[i]] == 1)
+					{
+						Ext.getCmp(fields[i]).check();
+					}
+					else
+					{
+						Ext.getCmp(fields[i]).uncheck();
+					}
+					
+				}
+
+				fields = ["cstarttime","cendtime","stime1","etime1","stime2","etime2","stime3","etime3","stime4","etime4","stime5","etime5"];
+				for(var i=0;i<fields.length;i++)
+				{
+					var myDate = new Date(); 
+					me.tool.setHM(myDate,data[fields[i]]);
+					Ext.getCmp(fields[i]).setValue(myDate);
+				}
+			}
+		},
+		failure: function(response, opts) {
+		  console.log('server-side failure with status code ' + response.status);
+		}
+		});
+	},
 	getLogin:function()
 	{
 		var me=this;
@@ -125,9 +278,10 @@ var app = Ext.application({
 								params: data,
 								success: function(response, opts) {
 								  var obj = Ext.decode(response.responseText);
-								 if(obj.success){
+								 if(obj.success){//登陆成功
 									me.user = obj.user;
 									me.role = obj.role;
+									me.getConfigData();
 									me.store.load({params :
 									{
 										'user':me.user, 
@@ -152,7 +306,28 @@ var app = Ext.application({
 					text : '暗証番号リセット',
 					handler:function()
 					{
-							me.user = 1;
+							var name= Ext.getCmp("name").getValue();
+							if(name.length==0)
+							{
+								alert('名前を入力してください。');
+								return;
+							}
+							 Ext.Msg.prompt('EMAIL', 'EMAILを入力してください。', function(id,text) {
+								 text = "javaandnet@gmail.com";//Todo
+								if(text.length>0)
+								 {
+												me.resetPWD(text);
+								 }
+													　
+							});
+					}
+				},
+				{
+					xtype : 'button',	
+					text : 'Excel',
+					handler:function()
+					{
+							window.open("/excel", '_blank');
 					}
 				}
 			]
@@ -184,6 +359,7 @@ var app = Ext.application({
 		return i;
 	},
 	getConfig:function(){
+		var me = this;
 		return {
          title: '設定',
          iconCls: 'settings',
@@ -195,42 +371,49 @@ var app = Ext.application({
 					items: [
 						{
 							xtype: 'checkboxfield',
-							name : 'week0',
+								id:'r0',
+							name : 'r0',
 							label: '日'
 						},
 						{
 							xtype: 'checkboxfield',
-							name : 'week1',
+								id:'r1',
+							name : 'r1',
 							label: '月',
 							checked: true
 						},
 						{
 							xtype: 'checkboxfield',
-							name : 'week2',
+								id:'r2',
+							name : 'r2',
 							label: '火',
 							checked: true
 						},
 						{
 							xtype: 'checkboxfield',
-							name : 'week3',
+								id:'r3',
+							name : 'r3',
 							label: '水',
 							checked: true
 						},
 						{
 							xtype: 'checkboxfield',
-							name : 'week4',
+								id:'r4',
+							name : 'r4',
 							label: '木',
 							checked: true
 						},
 						{
 							xtype: 'checkboxfield',
-							name : 'week5',
+								id:'r5',
+							name : 'r5',
 							label: '金',
 							checked: true
 						},
 						{
 							xtype: 'checkboxfield',
-							name : 'week6',
+								id:'r6',
+							name : 'r6',
 							label: '土' 
 						}
 					]
@@ -239,27 +422,29 @@ var app = Ext.application({
 					title: '作業制限',
 					items: [
 						{
-							xtype: 'textfield',
+							xtype: 'numberfield',
+							id:'mintime',
 							name : 'mintime',
 							label: '最低時間',
-							value:'140',
-							readOnly:true
+							value:'140'
 						},
 						{
-							xtype: 'textfield',
+							xtype: 'numberfield',
+								id:'maxtime',
 							name : 'maxtime',
 							label: '最高時間',
-							value:'180',
-							readOnly:true　
+							value:'180'
 						},						{
 							xtype: 'timepickerfield',
-							name : 'starttime',
+							name : 'cstarttime',
+							id:'cstarttime',
 							label: '開始時間',
 							value:'9:00'
 						},
 						{
 							xtype: 'timepickerfield',
-							name : 'endtime',
+							name : 'cendtime',
+								id:'cendtime',
 							label: '終了時間',
 							value:'18:00'
 						}
@@ -270,61 +455,71 @@ var app = Ext.application({
 					items: [
 						{
 							xtype: 'timepickerfield',
-							name : 'starttime1',
+							id:'stime1',
+							name : 'stime1',
 							label: '開始時間1',
 							value: '00:00'　
 						},
 						{
 							xtype: 'timepickerfield',
-							name : 'endtime1',
+							id : 'etime1',
+							name : 'etime1',
 							label: '終了時間1',
 							value: '00:00'　　
 						},
 								{
 							xtype: 'timepickerfield',
-							name : 'starttime2',
+							id:'stime2',
+							name : 'stime2',
 							label: '開始時間2',
 							value: '00:00'　
 						},
 						{
 							xtype: 'timepickerfield',
-							name : 'endtime2',
+							id : 'etime2',
+							name : 'etime2',
 							label: '終了時間2',
 							value: '00:00'　
 						},
 								{
 							xtype: 'timepickerfield',
-							name : 'starttime3',
+							id:'stime3',
+							name : 'stime3',
 							label: '開始時間3',
 							value: '00:00'
 						},
 						{
 							xtype: 'timepickerfield',
-							name : 'endtime3',
+							id : 'etime3',
+							name : 'etime3',
 							label: '終了時間3',
 							value: '00:00'　　
 						},
 						{
 							xtype: 'timepickerfield',
-							name : 'starttime4',
+							id:'stime4',
+							name : 'stime4',
 							label: '開始時間4',
 							value: '00:00'　
 						},
 						{
 							xtype: 'timepickerfield',
-							name : 'endtime4',
+							id : 'etime4',
+							name : 'etime4',
 							label: '終了時間4',
 							value: '00:00'　　
 						},
 								{
 							xtype: 'timepickerfield',
-							name : 'starttime5',
+							id:'stime5',
+							name : 'stime5',
 							label: '開始時間5',
 							value: '00:00'　
 						},
 						{
 							xtype: 'timepickerfield',
-							name : 'endtime5',
+							id : 'etime5',
+							name : 'etime5',
 							label: '終了時間5',
 							value: '00:00'　
 						}
@@ -335,7 +530,7 @@ var app = Ext.application({
 					text : '上記保存',
 					handler:function()
 					{
-							me.user = 1;
+							me.setConfigData();
 					}
 				},{
 					xtype: 'fieldset',
@@ -343,31 +538,33 @@ var app = Ext.application({
 					items: [
 						{
 							xtype: 'passwordfield',
+								id:"oldpwd",
 							name : 'oldpwd',
 							label: '元暗証番号',
 							value: ''　
 						},
 						{
 							xtype: 'passwordfield',
+								id:"newpwd",
 							name : 'newpwd',
 							label: '新暗証番号',
 							value: ''　　
 						},
 								{
 							xtype: 'passwordfield',
+								id:"newpwd2",
 							name : 'newpwd2',
 							label: '再入力（確認）',
 							value: ''　
 						},{
 					xtype : 'button',	
-					text : '保存',
-					handler:function()
-					{
-							me.user = 1;
-					}
-				}
-							
-							]}
+					text : '変更',
+							handler:function()
+						{
+								me.changePWD(Ext.getCmp("oldpwd").getValue(),Ext.getCmp("newpwd").getValue(),Ext.getCmp("newpwd2").getValue()); 
+						}
+						}		
+					]}
 			]
 		};
 	},
@@ -547,7 +744,61 @@ var app = Ext.application({
 				}
 				]
 	        };
-    },  
+    }, 
+	resetPWD:function(email)
+	{
+		var data = {"name":Ext.getCmp("name").getValue(),"email":email,option:"r"};
+		Ext.Ajax.request({
+			url: '../../rspwd',
+			method :'POST',
+			params: data,
+			success: function(response, opts) {
+			  var obj = Ext.decode(response.responseText);
+			 if(obj.success)
+			{
+					alert("リセットしました。请查看邮件。");
+			}
+			else
+			{
+					alert("リセット失敗、EMAIL入力错误。");
+			}
+		  console.dir(obj);
+		},
+		failure: function(response, opts) {
+		  console.log('server-side failure with status code ' + response.status);
+		}
+		});
+	},
+	changePWD:function(pwd,newpwd,newpwd2)
+	{
+		if(newpwd!=newpwd2)
+		{
+			alert("新しい暗証番号と確認用暗証番号が一致してない。");
+			return;
+		}
+
+		var data = {"password":pwd,"newpassword":newpwd,option:"c"};
+		Ext.Ajax.request({
+			url: '../../pwd',
+			method :'POST',
+			params: data,
+			success: function(response, opts) {
+			  var obj = Ext.decode(response.responseText);
+			 if(obj.success)
+			{
+					alert("変更しました。");
+			}
+			else
+			{
+					alert("変更失敗、暗証番号入力错误。");
+			}
+		  console.dir(obj);
+		},
+		failure: function(response, opts) {
+		  console.log('server-side failure with status code ' + response.status);
+		}
+		});
+	},
 	getData:function()
 	{
 		var data = this.data;
@@ -560,8 +811,7 @@ var app = Ext.application({
 		 this.tool.setHM(myDate,data["starttime"]);
 		 Ext.getCmp("starttime").setValue(myDate);
 		 this.tool.setHM(myDate,data["endtime"]);
-		 Ext.getCmp("endtime").setValue(myDate);
-		
+		 Ext.getCmp("endtime").setValue(myDate);	
 	},
 	setData:function()
 	{
@@ -586,8 +836,7 @@ var app = Ext.application({
 				params: data,
 				success: function(response, opts) {
 				  var obj = Ext.decode(response.responseText);
-				 if(obj.success){
-					
+				 if(obj.success){					
 					if(obj.id)
 					 {
 							data.id = obj.id;
@@ -618,7 +867,7 @@ var app = Ext.application({
 		var me = this;
 
 		Ext.Date.monthNames = [
-				"1",
+			"1",
 			"2",
 			"3",
 			"4",

@@ -28,7 +28,11 @@ exports.q = function (sql,params,func) {
 			throw err;
 		}
 		console.log('The data record is: ', rows.length);
-		func(rows);
+		if(func)
+		{
+			func(rows);
+		}
+		
 	});
 };
 
@@ -40,6 +44,8 @@ exports.q = function (sql,params,func) {
 //var userModSql_Params = ['USER', '5678',1];
 exports.c = function(sql,params,callback)
 {
+	console.log(sql);
+	console.log(params);
 	conn.query(sql,params,function (err, result) {
 		if(err){
 			console.log('[UPDATE ERROR] - ',err.message);
@@ -66,7 +72,7 @@ exports.u = function(data,callback)
 exports.d = function(data,callback)
 {
 	var obj = deleteSql(data);
-	 return exports.c(obj.sql,obj.param,callback)
+	return exports.c(obj.sql,obj.param,callback)
 };
 
 
@@ -82,7 +88,7 @@ function insertSql(data)
 	rtn.sql+="  (";
 	for(var key in data)
 	{
-		if((key!="table")&&(key!="id")&&(data[key]!=null))
+		if((key!="table")&&(key!="id")&&(key!="option")&&(data[key]!=null))
 		{
 					rtn.sql+=" ";
 					rtn.sql+=key;
@@ -127,6 +133,7 @@ function updateSql(data)
 	rtn.sql+="  WHERE Id = ? ";
 	rtn.param.push(data["id"]);
 	console.log(rtn.sql);
+	console.log(rtn.param);
 	return rtn;
 }
 

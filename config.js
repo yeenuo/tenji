@@ -36,3 +36,10 @@ exports.localdb ={
     database:'WK',
     port: 3306
 };
+
+exports.mail ={
+    host: 'smtp.gmail.com',
+	port: 465,
+    user: 'tenji0608@gmail.com',
+    pass: 'test0608'
+};
