@@ -5,12 +5,34 @@ Tool.prototype = {
 		var a =  str.substring(0,4)+"-"+ str.substring(4,6)+"-" + str.substring(6,8);
 		return new Date(Date.parse(a));
     },
+	timeStr : function(str) {
+		var a =  str.substring(0,2)+":"+ str.substring(2,4);
+		return a;
+    },
 	setHM : function(date,hm) {
 		var h =  parseInt(hm.substring(0,2));
 		var m =  parseInt(hm.substring(2,4));
 		date.setHours(h);
 		date.setMinutes(m);
     },
+	getHM:function(hm)
+	{
+		var date = new Date();
+		this.setHM(date,hm);
+		return date;
+	},
+	pad:function(num, n) {
+
+    var len = num.toString().length;
+
+    while(len < n) {
+
+        num = "0" + num;
+        len++;
+    }
+
+    return num+"";
+},
 	day : function(str) {
 		return  this.date(str).getDate(); 
     },

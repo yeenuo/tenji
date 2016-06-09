@@ -32,11 +32,21 @@ var app = Ext.application({
     launch: function() {
     	var me = this;
 		this.tool = new Tool();
+		me.alltime = 0;//合计时间
 		me.user = -1;
 		me.data = {};//当前选中data,便于删除修改添加用
 		me.datas = [];
 		me.index = 0;//当前数据序号，实际用日期也可取。
 		me.month = Ext.Date.format(new Date(),"Ym");//当前月份
+		me.config = {};
+
+		me.status ={
+			f:'yellow',//future未来
+			d:'green',//done 已完成
+			u:'red',//undo 未做
+			n:'gray'//NoNeed 不需要
+		};
+
 		me.rest_data = [
 						{text: '--',  value: '0'},
                         {text: '全休',  value: '1'},
@@ -183,7 +193,6 @@ var app = Ext.application({
 		}
 		});
 	},
-	//setSpot
 	getConfigData:function()
 	{
 		var me = this;
@@ -200,7 +209,14 @@ var app = Ext.application({
 				var data = obj;
 				me.spot = data.spot;
 				me.wktime = data.wktime;
-
+				me.config= data;
+				me.config.starttime= data.cstarttime;//修正
+				me.config.endtime= data.cendtime;
+				if(me.datas.length>0)//已读取数据
+				{
+					me.calAllTime();//计算总计时间，两处都执行
+					me.setAllTime();//设置合计时间
+				}
 				var fields = ["mintime","maxtime"];
 				for(var i=0;i<fields.length;i++)
 				{
@@ -217,8 +233,7 @@ var app = Ext.application({
 					else
 					{
 						Ext.getCmp(fields[i]).uncheck();
-					}
-					
+					}	
 				}
 
 				fields = ["cstarttime","cendtime","stime1","etime1","stime2","etime2","stime3","etime3","stime4","etime4","stime5","etime5"];
@@ -355,9 +370,6 @@ var app = Ext.application({
 		}
 		return null;
 	},
-	test:function(i){
-		return i;
-	},
 	getConfig:function(){
 		var me = this;
 		return {
@@ -430,7 +442,7 @@ var app = Ext.application({
 						},
 						{
 							xtype: 'numberfield',
-								id:'maxtime',
+							id:'maxtime',
 							name : 'maxtime',
 							label: '最高時間',
 							value:'180'
@@ -438,6 +450,7 @@ var app = Ext.application({
 							xtype: 'timepickerfield',
 							name : 'cstarttime',
 							id:'cstarttime',
+							editable　:true,
 							label: '開始時間',
 							value:'9:00'
 						},
@@ -568,6 +581,16 @@ var app = Ext.application({
 			]
 		};
 	},
+	setWorktime:function()
+	{
+		var me =this;
+		var sDate =  new Date(Ext.getCmp("starttime").getValue());
+		var s = Ext.Date.format(sDate,"Hi");
+		sDate =  new Date(Ext.getCmp("endtime").getValue());
+		var e = Ext.Date.format(sDate,"Hi");
+		var rest =Ext.Array.clone(me.resttime);
+		Ext.getCmp("worktime").setValue(me.getTime(s,e,rest));
+	},
     getInput:function(){
     	var dt = Ext.Date.add(new Date(), Ext.Date.DAY, 1);
 		var me = this;
@@ -591,7 +614,12 @@ var app = Ext.application({
 					id : 'starttime',
 					name : 'starttime',
                     labelWidth : '35% ',
-                    value:new Date()
+					listeners:{
+						change:function( ts, newDate, oldDate, eOpts )
+						{
+							me.setWorktime();
+						}
+					}
                 },{
                     xtype: 'timepickerfield',
                     label: '終了時間:',
@@ -599,13 +627,18 @@ var app = Ext.application({
 					name : 'endtime',
                     labelWidth : '35%' ,
 					slotOrder: ['hour','minute'],
-                    value:new Date()
+					listeners:{
+						change:function( ts, newDate, oldDate, eOpts )
+						{
+							me.setWorktime();
+						}
+					}
                 }, {
-					xtype : 'textfield',
+					xtype : 'numberfield',
 					labelWidth : '35%',
 					label : '勤務時間:',
 					id : 'worktime',
-					name : 'time',
+					name : 'worktime',
 					value : ''
 				},{
 					id : 'rest',
@@ -744,7 +777,7 @@ var app = Ext.application({
 				}
 				]
 	        };
-    }, 
+    },
 	resetPWD:function(email)
 	{
 		var data = {"name":Ext.getCmp("name").getValue(),"email":email,option:"r"};
@@ -863,9 +896,252 @@ var app = Ext.application({
 				}
 				});
 	},
+	//设置合计时间
+	setAllTime:function()
+	{
+		var me = this;
+		var bgcolor = "";
+		if(me.alltime<me.config.mintime)
+		{
+			 bgcolor = "min";
+		}
+		else if(me.alltime>me.config.maxtime)
+		{
+			bgcolor = "max";
+		}
+		//'<div  style="background-color:'+bgcolor+';width:100%;height:100%">総計：</div>',
+		Ext.getCmp("alltime").setHtml('<div  class = "div_'+bgcolor+'"style="width:100%;height:100%">総計：'+me.alltime+'</div>');
+	},
+	calAllTime:function(){
+		var me = this;
+		var a = 0;
+		
+		for(var i =0;i<me.datas.length;i++)
+		{
+			a += me.datas[i].worktime;
+		}
+		me.alltime = a;
+	},
+	//休息日,TODO红日子获得
+	restdate:function(str) {
+		var me = this;
+		var rtn = false;
+		var a =  str.substring(0,4)+"-"+ str.substring(4,6)+"-" + str.substring(6,8);
+		var _w = new Date(Date.parse(a)).getDay();
+		if(me.config["r"+_w] == 1)
+		{
+			rtn = true;
+		}
+		return rtn;
+    },
+	getRestTime:function()
+	{
+		var resttimes = [];
+		var me = this;
+		for(var i=1;i<6;i++)
+		{
+			var obj = {};
+			var s = parseInt(me.config["stime"+i]);
+			var e = parseInt(me.config["etime"+i]);
+			if((i==5)&&(e==0))
+			{
+				e = 2400;//2400处理
+			}
+			if((s<e)&&(e!=0))
+			{
+				obj.s = s;
+				obj.e = e;
+				resttimes.push(obj);
+			}
+		}
+		console.log("resttimes");
+		 console.log(resttimes);
+		return resttimes;
+	},
+	//s:开始时间 t:结束时间 rests:休息时间
+	getTime:function(st,et,rests)
+	{
+		var time = 0;
+		var times = [];
+		var s = parseInt(st);
+		var e = parseInt(et);
+		var allRest = 0;
+		var me = this;
+		for(var i=0;i<rests.length;i++)
+		{
+			var rest = rests[i];
+			if(rest.e>s)//结束时间大于开始时间开始计时
+			{
+				if(rest.s>e)//开始时间超过结束时间
+				{
+					break;
+				}
+				if(s>rest.s)
+				{
+					rest.s = s;
+				}
+				if(e<rest.e)
+				{
+					rest.e = e;
+				}
+				times.push(rest);
+			}
+			
+		}
+
+		for(var i=0;i<times.length;i++)
+		{
+			
+			var s_t = me.tool.getHM(me.tool.pad(times[i].s,4));
+			var e_t = me.tool.getHM(me.tool.pad(times[i].e,4));
+			var diff = Ext.Date.diff(s_t,e_t,"s");
+			allRest+=diff;
+		}
+			var s_t = me.tool.getHM(me.tool.pad(st,4));
+			var e_t = me.tool.getHM(me.tool.pad(et,4));
+			var diff_ = Ext.Date.diff(s_t,e_t,"s");
+			time = diff_ - allRest;
+			console.log("time:"+time);
+ 
+
+		//times 全部为休息时间
+		//var arests = [];//有效时间，有些休息时间在作业时间以外
+		
+		for(var i=0;i<rests.length;i++)
+		{
+			var rest = rests[i];
+			if(rest.e>s)//有效
+			{
+				if(s>rest.s)
+				{
+					rest.s = s;
+				}
+				break;
+			}
+			else//下一个
+			{
+				rests.splice(i,1);
+			}
+		}
+
+		for(var i=0;i<rests.length;i++)
+		{
+			var index = rests.length-1 - i;
+			var rest = rests[index];
+			if(rest.s<e)//有效
+			{
+				if(e<rest.e)
+				{
+					rest.e = e;
+				}
+				break;
+			}
+			else//下一个
+			{
+				rests.splice(i,1);
+			}
+
+		}
+
+		
+		console.log(rests);
+
+		for(var i=0;i<=rests.length;i++)//此处对故意输错，R1含R2没做处理 TODO
+		{
+			var obj = {};
+			if(i==0)
+			{
+				obj.s = s;
+				if(rests.length==0)
+				{
+					obj.e =e;
+				}else
+				{
+					obj.e =rests[i].s;
+				}
+				
+			}
+			else if(i==rests.length)
+			{
+				obj.s =  rests[i-1].e;
+				obj.e = e;
+			}
+			else
+			{
+				obj.e = rests[i].s;
+				obj.s = rests[i-1].e;
+			}
+			times.push(obj);
+		}
+		console.log(times);
+		for(var i=0;i<times.length;i++)
+		{
+			var me = this;
+			var st = me.tool.getHM(me.tool.pad(times[i].s,4));
+			var et = me.tool.getHM(me.tool.pad(times[i].e,4));
+			var diff = Ext.Date.diff(st,et,"s");
+			var c = 0.0;
+			console.log("diff:"+diff);
+			c= diff/3600;
+			time+=c;
+		}
+
+		console.log(time);
+		return time;
+	},
+	//更换数据
+	changeDatas:function(store)
+	{
+		var me = this;
+		me.resttime = me.getRestTime();
+		var rest =Ext.Array.clone(me.resttime);
+		var count = store.data.all.length; 
+		for(var i =0;i<count;i++)
+		{
+			//var data = store.data.getAt(i).data;//获取数据
+			//store.data.getAt(i).data = me.changeData(data);
+			me.changeData(store.data.getAt(i).data,i,rest);
+		}
+	
+		 console.log(me.config);
+	},
+	changeData:function(data,index,rest)
+	{
+		var me = this;
+		var n_d = new Date().getDate();//获取当前日期
+		var nowDate = parseInt(Ext.Date.format(new Date(),"Ymd"));
+		var judgeDate = parseInt(data.date);
+		var status = me.status.f;//未来
+		console.log("changeData");
+		console.log(data);
+		if(me.restdate(data.date))//休息日，优先判断休息日
+		{
+			status = me.status.n;//不需要
+		}
+		else if(judgeDate<=nowDate)//如果日子已过去,当前月份判断日子，以后月份全部
+		{
+			status = me.status.u;
+		}
+
+		if(data.confim == 0)//需要修正
+		{
+			if(status != me.status.n)
+			{
+				data.starttime = me.config.starttime;
+				data.endtime = me.config.endtime;
+				data.worktime = me.getTime(data.starttime,data.endtime,rest);
+			}
+		}
+		else
+		{
+			status =  me.status.d;
+		}
+		data.status = status;
+		return data;
+	},
+
     getListConfiguration: function() {
 		var me = this;
-
 		Ext.Date.monthNames = [
 			"1",
 			"2",
@@ -879,7 +1155,7 @@ var app = Ext.application({
 			"10",
 			"11",
 			"12"
-			];
+		];
 		var month = Ext.create('Ext.field.DatePicker', {
 					id: 'month',
 					fieldLabel:　'月份',
@@ -897,10 +1173,29 @@ var app = Ext.application({
 
 	   month.setPicker(monthPicker);
 	   month.setValue(new Date());
-        me.datas = [];
+      
+	   month.on("change",function(){
+			me.month = Ext.Date.format(Ext.getCmp("month").getValue(),"Ym");
+			me.store.load({params :
+			{
+				'user':me.user, 
+				'month':me.month}
+			});
+		});
+
+		var all_time = {
+					id: 'alltime',
+					fieldLabel:　'総計：',
+					width : 150,
+					xtype:　'label',
+					html:　"総計：0"
+					//value:new Date().dateFormat('Y-m')
+		};
+
+		me.datas = [];
         me.store = Ext.create('Ext.data.Store', {
             //give the store some fields
-            fields: ['id','date','starttime','endtime','worktime','rest','reason','status','memo'],
+            fields: ['id','date','starttime','endtime','worktime','rest','reason','status','memo','confim'],
             //filter the data using the firstName field
             sorters: 'date',
             //autoload the data from the server
@@ -908,11 +1203,20 @@ var app = Ext.application({
 			listeners:{
 				load:function(st, records)
 				{
+					//st.data.getAt(0).data.worktime = 99;
+					me.changeDatas(st);//更换数据,重新计算
+					Ext.getCmp('list_list').setStore(null);
+					Ext.getCmp('list_list').setStore(me.store);//此处刷新数据后，重新绑定
+					 me.datas = [];
 					for(var i  = 0;i<records.length;i++)
 					{
 							me.datas.push(records[i].data);
 					}
-
+					if(me.config.mintime)
+					{
+						me.calAllTime();//计算总计时间
+						me.setAllTime();//设置合计时间
+					}
 				}
 			},
             proxy: {
@@ -934,15 +1238,6 @@ var app = Ext.application({
     	    	}
             }
         });
-		
-		month.on("change",function(){
-			me.month = Ext.Date.format(Ext.getCmp("month").getValue(),"Ym");
-			me.store.load({params :
-			{
-				'user':me.user, 
-				'month':me.month}
-			});
-		});
         return {
 			items: [
 			{
@@ -950,9 +1245,11 @@ var app = Ext.application({
               xtype: 'titlebar',
               items: [
                  month
+				 ,all_time
 				]
 			 }
 			],
+			id:'list_list',
             xtype: 'list',
             scrollable: {
                 direction: 'vertical'
@@ -961,13 +1258,16 @@ var app = Ext.application({
             itemHeight  :10,
             itemTpl: new Ext.XTemplate(
 				//'<table><tr><td height="40" bgcolor ="{status}">{[this.date(values.date)]}【{starttime}~{endtime}】:{worktime} ({[this.rest(values.rest)]})</td></tr></table>',
-				'<div  style="background-color:{status};width:100%;height:100%">{[this.date(values.date)]}【{starttime}~{endtime}】:{worktime} ({[this.rest(values.rest)]})</div>',
+				'<div  style="background-color:{status};width:100%;height:100%">{[this.date(values.date)]}【{[this.time(values.starttime)]}~{[this.time(values.endtime)]}】:{worktime} ({[this.rest(values.rest)]})</div>',
 				{
 					rest: function(v){
 					   return me.tool.getListText(v,me.rest_data);
 					},
 					date:function(v){
 					   return me.tool.day(v)+"("+me.tool.jweek(v)+")";
+					},
+					time:function(v){
+					   return me.tool.timeStr(v);
 					}
 				}
 			),
@@ -978,8 +1278,7 @@ var app = Ext.application({
 					me.data = me.datas[me.index];
                 	Ext.getCmp('panel_main').setActiveItem(1);
 					me.getData();
-                }},
-                store: me.store
+                }}
         };
     }
 });

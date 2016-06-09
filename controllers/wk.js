@@ -139,7 +139,9 @@ exports.config = function (req, res, next) {
 			{
 				console.log(JSON.stringify(rows[0]));
 				res.writeHead(200, {"Content-Type": "text/html;charset:utf-8"}); 
-				res.write(JSON.stringify(rows[0]));
+				var tmp =  JSON.parse(JSON.stringify(rows[0]));
+				tmp.success = true;
+				res.write(JSON.stringify(tmp));
 				res.end();
 			}
 			else
@@ -406,7 +408,7 @@ exports.adata =  function(month,datas)
 				break;
 			}
 		}
-		obj.status = status;
+		//obj.status = status;
 		cdata.push(obj);
 	}
 	return cdata;
