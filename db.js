@@ -21,6 +21,8 @@ exports.test = function () {
 };
 
 exports.q = function (sql,params,func) {
+	console.log(sql);
+	console.log(params);
 	var rtn;
 	conn.query(sql,params, function(err, rows, fields) {
 		if (err) 
@@ -51,10 +53,14 @@ exports.c = function(sql,params,callback)
 			console.log('[UPDATE ERROR] - ',err.message);
 			return;
 		}       
-		console.log('--------------------------UPDATE----------------------------');
+		console.log('--------------------------UPDATE----BY--RFL----------------------');
 		console.log('UPDATE affectedRows',result.affectedRows);
 		console.log('-----------------------------------------------------------------');
-		callback(result);
+		if(callback)
+		{
+			callback(result);
+		}
+		
 	});
 };
 

@@ -29,16 +29,24 @@ var app = Ext.application({
      *
      * If the user is not on a phone, we wrap the list inside a panel which is centered on the page.
      */
-    launch: function() {
-    	var me = this;
-		this.tool = new Tool();
+
+	 initConfig:function()
+	{
+		var me = this;
 		me.alltime = 0;//合计时间
+		me.actualtime = 0;//合计时间
+		me.spot = -1
 		me.user = -1;
 		me.data = {};//当前选中data,便于删除修改添加用
 		me.datas = [];
 		me.index = 0;//当前数据序号，实际用日期也可取。
 		me.month = Ext.Date.format(new Date(),"Ym");//当前月份
 		me.config = {};
+	},
+    launch: function() {
+    	var me = this;
+		this.tool = new Tool();
+		me.initConfig();
 
 		me.status ={
 			f:'yellow',//future未来
@@ -91,30 +99,26 @@ var app = Ext.application({
 					Ext.getCmp('panel_main').setActiveItem(3);//初次启动，登录页面
 			}
 			else if(value.id=="tab_input"){
-					if(!me.data.date)
+				if(!me.data.date)
 				{
 						Ext.getCmp('panel_main').setActiveItem(0);//当入力数据为空时，List页面
 				}
-
 			}
-
-
-
-
 		});
     },
-	setConfigData:function()
+	//保存配置数据
+	saveConfigData:function()
 	{
 		var me = this;
 		var data = {};
-		if(me.spot)
+		if(me.spot<0)
 		{
-			data.id = me.spot;
-			data.option = "stu";//更新
+			data.option = "sti";//添加
 		}
 		else
 		{
-			data.option = "sti";//添加
+			data.id = me.spot;
+			data.option = "stu";//更新
 		}
 		
 		fields = ["cstarttime","cendtime","stime1","etime1","stime2","etime2","stime3","etime3","stime4","etime4","stime5","etime5"];
@@ -123,30 +127,35 @@ var app = Ext.application({
 			var sDate =  new Date(Ext.getCmp(fields[i]).getValue());
 			data[fields[i]] =  Ext.Date.format(sDate,"Hi");
 		}
+		//先保存现场
 		//属性赋值
 		data["starttime"] = data["cstarttime"];
 		delete data.cstarttime;
 		data["endtime"] = data["cendtime"];
 		delete data.cendtime;
+		me.config = data;//初次设置各种时间
 		Ext.Ajax.request({
 			url: '../../config',
 			method :'POST',
 			params: data,
 			success: function(response, opts) {
 				var obj = Ext.decode(response.responseText);
-				var data = obj;
-				me.spot = obj.id;//取得ID
-				me.setWKTime();//更新作业时间
+				if(me.spot<0)//添加作业地点
+				{
+					me.spot = obj.id;//取得ID
+				}
+				me.saveWKTime();//更新作业时间
 			},
 		failure: function(response, opts) {
-		  console.log('server-side failure with status code ' + response.status);
+		  console.log('server erro:'+ response.status);
 		}
 		});
 
 
 
 	},
-	setWKTime:function()
+	//保存工作时间
+	saveWKTime:function()
 	{
 		var me = this;
 		var data = {};
@@ -165,6 +174,7 @@ var app = Ext.application({
 		for(var i=0;i<fields.length;i++)
 		{
 			data[fields[i]] = Ext.getCmp(fields[i]).getValue();
+			me.config[fields[i]] = data[fields[i]];
 		}
 		fields = ["r0","r1","r2","r3","r4","r5","r6"];
 		for(var i=0;i<fields.length;i++)
@@ -174,10 +184,11 @@ var app = Ext.application({
 			{
 				data[fields[i]] = 1;
 			}
+			me.config[fields[i]] = data[fields[i]];
 		}
-		data.month = me.month;
 		data.user = me.user;
 		data.spot = me.spot;
+
 		Ext.Ajax.request({
 			url: '../../config',
 			method :'POST',
@@ -186,19 +197,51 @@ var app = Ext.application({
 				var obj = Ext.decode(response.responseText);
 				var data = obj;
 				me.wktime = obj.id;//取得ID
-				alert(	"success");
+				me.store.load({
+					params ://刷新LIST主页面
+					{
+						'user':me.user, 
+						'month':me.month
+					}
+				});
+				alert(	"保存完了。");
 			},
 		failure: function(response, opts) {
-		  console.log('server-side failure with status code ' + response.status);
+		  console.log('server erro:'+ response.status);
 		}
 		});
 	},
-	getConfigData:function()
+	//向合计时间内保存数据
+	saveAllTime:function(func)
 	{
 		var me = this;
-		
-			var data = {month:me.month,option:"q"};
+		var data = {user:me.user,month:me.month,actualtime:me.actualtime,alltime:me.alltime};//合计时间
 			Ext.Ajax.request({
+			url: '../../atime',
+			method :'POST',
+			params: data,
+			success: function(response, opts) {
+				var obj = Ext.decode(response.responseText);
+				if(obj.success)
+				{
+
+				}
+				if(func)
+				{
+					func(obj);
+				}
+			},
+			failure: function(response, opts) {
+			  console.log('server erro:'+ response.status);
+			}
+		});
+	},
+	//从DB获取设定数据，画面设置数据，登录时调用
+	loadConfigData:function(func)
+	{
+		var me = this;
+		var data = {user:me.user,month:me.month,option:"q"};
+		Ext.Ajax.request({
 			url: '../../config',
 			method :'POST',
 			params: data,
@@ -207,15 +250,18 @@ var app = Ext.application({
 			if(obj.success)
 			{
 				var data = obj;
+				//设置me.config数据
 				me.spot = data.spot;
 				me.wktime = data.wktime;
 				me.config= data;
 				me.config.starttime= data.cstarttime;//修正
 				me.config.endtime= data.cendtime;
+
 				if(me.datas.length>0)//已读取数据
 				{
 					me.calAllTime();//计算总计时间，两处都执行
 					me.setAllTime();//设置合计时间
+					me.saveAllTime();
 				}
 				var fields = ["mintime","maxtime"];
 				for(var i=0;i<fields.length;i++)
@@ -244,9 +290,13 @@ var app = Ext.application({
 					Ext.getCmp(fields[i]).setValue(myDate);
 				}
 			}
+			if(func)
+			{
+				func(obj);
+			}
 		},
 		failure: function(response, opts) {
-		  console.log('server-side failure with status code ' + response.status);
+		  console.log('server erro:'+ response.status);
 		}
 		});
 	},
@@ -278,6 +328,7 @@ var app = Ext.application({
 					text : '登録',
 					handler:function()
 					{
+							me.initConfig();//初始化配置
 							var name= Ext.getCmp("name").getValue();
 							var password= Ext.getCmp("password").getValue();
 							
@@ -296,13 +347,36 @@ var app = Ext.application({
 								 if(obj.success){//登陆成功
 									me.user = obj.user;
 									me.role = obj.role;
-									me.getConfigData();
-									me.store.load({params :
-									{
-										'user':me.user, 
-										'month':me.month}
-									});
-									Ext.getCmp('panel_main').setActiveItem(0);
+									if(me.role == 1)
+									 {
+										Ext.getCmp("btn_excel").setHidden(false);
+									 }
+									 else
+									 {
+										Ext.getCmp("btn_excel").setHidden(true);
+									 }
+									 Ext.getCmp("lbl_user_name").setHtml(data.name);
+									 Ext.getCmp("month").setValue(new Date());
+									me.loadConfigData(
+										function(rtn)
+										 {
+											if(rtn.success)
+											 {
+												me.store.load({params :
+												{
+													'user':me.user, 
+													'month':me.month}
+												});
+												Ext.getCmp('panel_main').setActiveItem(0);
+											 }
+											 else
+											 {
+													alert("まず各設定を入力してください。");
+													Ext.getCmp('panel_main').setActiveItem(2);
+											 }
+										 }
+									);
+
 								}
 								else
 								{
@@ -311,7 +385,7 @@ var app = Ext.application({
 				  console.dir(obj);
 				},
 				failure: function(response, opts) {
-				  console.log('server-side failure with status code ' + response.status);
+				  console.log('server erro:'+ response.status);
 				}
 				});
 				}
@@ -335,14 +409,6 @@ var app = Ext.application({
 								 }
 													　
 							});
-					}
-				},
-				{
-					xtype : 'button',	
-					text : 'Excel',
-					handler:function()
-					{
-							window.open("/excel", '_blank');
 					}
 				}
 			]
@@ -471,14 +537,14 @@ var app = Ext.application({
 							id:'stime1',
 							name : 'stime1',
 							label: '開始時間1',
-							value: '00:00'　
+							value: '12:00'　
 						},
 						{
 							xtype: 'timepickerfield',
 							id : 'etime1',
 							name : 'etime1',
 							label: '終了時間1',
-							value: '00:00'　　
+							value: '13:00'　　
 						},
 								{
 							xtype: 'timepickerfield',
@@ -543,7 +609,7 @@ var app = Ext.application({
 					text : '上記保存',
 					handler:function()
 					{
-							me.setConfigData();
+							me.saveConfigData();
 					}
 				},{
 					xtype: 'fieldset',
@@ -798,7 +864,7 @@ var app = Ext.application({
 		  console.dir(obj);
 		},
 		failure: function(response, opts) {
-		  console.log('server-side failure with status code ' + response.status);
+		  console.log('server erro:'+ response.status);
 		}
 		});
 	},
@@ -809,8 +875,8 @@ var app = Ext.application({
 			alert("新しい暗証番号と確認用暗証番号が一致してない。");
 			return;
 		}
-
-		var data = {"password":pwd,"newpassword":newpwd,option:"c"};
+		var me = this;
+		var data = {user:me.user,"password":pwd,"newpassword":newpwd,option:"c"};
 		Ext.Ajax.request({
 			url: '../../pwd',
 			method :'POST',
@@ -828,7 +894,7 @@ var app = Ext.application({
 		  console.dir(obj);
 		},
 		failure: function(response, opts) {
-		  console.log('server-side failure with status code ' + response.status);
+		  console.log('server erro:'+ response.status);
 		}
 		});
 	},
@@ -860,6 +926,7 @@ var app = Ext.application({
 		me.data["endtime"] = Ext.Date.format(sDate,"Hi");
 		
 	},
+	//提交数据
 	submitData:function(data,callback)
 	{
 			var me = this;
@@ -892,7 +959,7 @@ var app = Ext.application({
 				  console.dir(obj);
 				},
 				failure: function(response, opts) {
-				  console.log('server-side failure with status code ' + response.status);
+				  console.log('server erro:'+ response.status);
 				}
 				});
 	},
@@ -910,17 +977,23 @@ var app = Ext.application({
 			bgcolor = "max";
 		}
 		//'<div  style="background-color:'+bgcolor+';width:100%;height:100%">総計：</div>',
-		Ext.getCmp("alltime").setHtml('<div  class = "div_'+bgcolor+'"style="width:100%;height:100%">総計：'+me.alltime+'</div>');
+		Ext.getCmp("alltime").setHtml('<div  class = "div_'+bgcolor+'"style="width:100%;height:100%">見込み:'+me.alltime+'</div>');
+		Ext.getCmp("actualtime").setHtml('<div　style="width:100%;height:100%">実際:'+me.actualtime+'</div>');
 	},
 	calAllTime:function(){
 		var me = this;
-		var a = 0;
-		
+		var a = 0.0;
+		var c = 0.0;
 		for(var i =0;i<me.datas.length;i++)
 		{
-			a += me.datas[i].worktime;
+			a += parseFloat(me.datas[i].worktime);
+			if(me.datas[i].status == me.status.d)
+			{
+				c += parseFloat(me.datas[i].worktime);
+			}
 		}
-		me.alltime = a;
+		me.alltime = a.toFixed(2);
+		me.actualtime = c.toFixed(2);
 	},
 	//休息日,TODO红日子获得
 	restdate:function(str) {
@@ -928,7 +1001,7 @@ var app = Ext.application({
 		var rtn = false;
 		var a =  str.substring(0,4)+"-"+ str.substring(4,6)+"-" + str.substring(6,8);
 		var _w = new Date(Date.parse(a)).getDay();
-		if(me.config["r"+_w] == 1)
+		if(me.config["r"+_w] == 0)
 		{
 			rtn = true;
 		}
@@ -943,10 +1016,7 @@ var app = Ext.application({
 			var obj = {};
 			var s = parseInt(me.config["stime"+i]);
 			var e = parseInt(me.config["etime"+i]);
-			if((i==5)&&(e==0))
-			{
-				e = 2400;//2400处理
-			}
+			//2400未作处理处理
 			if((s<e)&&(e!=0))
 			{
 				obj.s = s;
@@ -997,97 +1067,16 @@ var app = Ext.application({
 			var diff = Ext.Date.diff(s_t,e_t,"s");
 			allRest+=diff;
 		}
-			var s_t = me.tool.getHM(me.tool.pad(st,4));
-			var e_t = me.tool.getHM(me.tool.pad(et,4));
-			var diff_ = Ext.Date.diff(s_t,e_t,"s");
-			time = diff_ - allRest;
-			console.log("time:"+time);
- 
+		var s_t = me.tool.getHM(me.tool.pad(st,4));
+		var e_t = me.tool.getHM(me.tool.pad(et,4));
+		var diff_ = Ext.Date.diff(s_t,e_t,"s");
+		time = diff_ - allRest;
 
-		//times 全部为休息时间
-		//var arests = [];//有效时间，有些休息时间在作业时间以外
-		
-		for(var i=0;i<rests.length;i++)
-		{
-			var rest = rests[i];
-			if(rest.e>s)//有效
-			{
-				if(s>rest.s)
-				{
-					rest.s = s;
-				}
-				break;
-			}
-			else//下一个
-			{
-				rests.splice(i,1);
-			}
-		}
-
-		for(var i=0;i<rests.length;i++)
-		{
-			var index = rests.length-1 - i;
-			var rest = rests[index];
-			if(rest.s<e)//有效
-			{
-				if(e<rest.e)
-				{
-					rest.e = e;
-				}
-				break;
-			}
-			else//下一个
-			{
-				rests.splice(i,1);
-			}
-
-		}
-
-		
-		console.log(rests);
-
-		for(var i=0;i<=rests.length;i++)//此处对故意输错，R1含R2没做处理 TODO
-		{
-			var obj = {};
-			if(i==0)
-			{
-				obj.s = s;
-				if(rests.length==0)
-				{
-					obj.e =e;
-				}else
-				{
-					obj.e =rests[i].s;
-				}
-				
-			}
-			else if(i==rests.length)
-			{
-				obj.s =  rests[i-1].e;
-				obj.e = e;
-			}
-			else
-			{
-				obj.e = rests[i].s;
-				obj.s = rests[i-1].e;
-			}
-			times.push(obj);
-		}
-		console.log(times);
-		for(var i=0;i<times.length;i++)
-		{
-			var me = this;
-			var st = me.tool.getHM(me.tool.pad(times[i].s,4));
-			var et = me.tool.getHM(me.tool.pad(times[i].e,4));
-			var diff = Ext.Date.diff(st,et,"s");
-			var c = 0.0;
-			console.log("diff:"+diff);
-			c= diff/3600;
-			time+=c;
-		}
-
-		console.log(time);
-		return time;
+		console.log("time:"+time);
+		var c = 0.0;
+		c = time/3600;
+		c = c.toFixed(2);
+		return c;
 	},
 	//更换数据
 	changeDatas:function(store)
@@ -1098,12 +1087,8 @@ var app = Ext.application({
 		var count = store.data.all.length; 
 		for(var i =0;i<count;i++)
 		{
-			//var data = store.data.getAt(i).data;//获取数据
-			//store.data.getAt(i).data = me.changeData(data);
 			me.changeData(store.data.getAt(i).data,i,rest);
 		}
-	
-		 console.log(me.config);
 	},
 	changeData:function(data,index,rest)
 	{
@@ -1129,6 +1114,14 @@ var app = Ext.application({
 			{
 				data.starttime = me.config.starttime;
 				data.endtime = me.config.endtime;
+				if(!Ext.isDefined(data.starttime))
+				{
+					data.starttime="0000";
+				}
+				if(!Ext.isDefined(data.endtime))
+				{
+					data.endtime="0000";
+				}
 				data.worktime = me.getTime(data.starttime,data.endtime,rest);
 			}
 		}
@@ -1159,7 +1152,7 @@ var app = Ext.application({
 		var month = Ext.create('Ext.field.DatePicker', {
 					id: 'month',
 					fieldLabel:　'月份',
-					width : 150,
+					width : 80,
 					xtype:　'datepickerfield',
 					dateFormat :"Y-m",
 					editable　:　false
@@ -1182,16 +1175,43 @@ var app = Ext.application({
 				'month':me.month}
 			});
 		});
+		
+		var actualtime = {
+					id: 'actualtime',
+					width : 90,
+					xtype:　'label',
+					html:　"実際:"
+		};
 
 		var all_time = {
 					id: 'alltime',
-					fieldLabel:　'総計：',
-					width : 150,
+					width : 90,
 					xtype:　'label',
-					html:　"総計：0"
-					//value:new Date().dateFormat('Y-m')
+					html:　"見込み:"
 		};
 
+		var btn_excel = 
+				{
+					xtype : 'button',	
+					text : 'Excel',
+					id:"btn_excel",
+					name:"btn_excel",
+					align:'right',
+					hidden:true,
+					handler:function()
+					{
+							window.open("/excel/"+me.month, '_blank');
+					}
+				};
+
+		var lbl_user_name = 
+			{
+					xtype : 'label',	
+					id:"lbl_user_name",
+					name:"lbl_user_name",
+					align:'right',
+					html:""
+			};
 		me.datas = [];
         me.store = Ext.create('Ext.data.Store', {
             //give the store some fields
@@ -1203,11 +1223,12 @@ var app = Ext.application({
 			listeners:{
 				load:function(st, records)
 				{
-					//st.data.getAt(0).data.worktime = 99;
-					me.changeDatas(st);//更换数据,重新计算
+					
+					me.changeDatas(st);//更换数据,重新计算时间等多种变量
 					Ext.getCmp('list_list').setStore(null);
 					Ext.getCmp('list_list').setStore(me.store);//此处刷新数据后，重新绑定
-					 me.datas = [];
+					
+					me.datas = [];
 					for(var i  = 0;i<records.length;i++)
 					{
 							me.datas.push(records[i].data);
@@ -1216,6 +1237,7 @@ var app = Ext.application({
 					{
 						me.calAllTime();//计算总计时间
 						me.setAllTime();//设置合计时间
+						me.saveAllTime();
 					}
 				}
 			},
@@ -1245,7 +1267,10 @@ var app = Ext.application({
               xtype: 'titlebar',
               items: [
                  month
+				  ,actualtime
 				 ,all_time
+				  ,lbl_user_name
+				 ,btn_excel
 				]
 			 }
 			],

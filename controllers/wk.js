@@ -14,6 +14,8 @@ var nodemailer = require("nodemailer");
 var config = require('../config');
 var db = require('../db');
 var crypto = require('crypto');
+var url = require('url');
+
 exports.app = function (req, res, next) {
 	console.log("app");
 	res.redirect('/public/index.html');
@@ -36,34 +38,93 @@ exports.new = function (req, res, next) {
 
 exports.excel = function(req, res, next)
 {
-	 var a = exports.exportExcel(req,res);
+	if(req.session.role==1)
+	{
+		exports.exportExcel(req,res);
+	}
 };
 
-
-
 exports.exportExcel=function(req,res){
-		var conf ={};
+
+	var month =req.params.month;
+	var conf ={};
+	conf.stylesXmlFile = "lib/styles.xml";
 		conf.cols = [
-			{caption:'string', type:'string'},
-			{caption:'date', type:'string'},
-			{caption:'bool', type:'bool'},
-			{caption:'number', type:'number'}
-		];
-		conf.rows = [
-			['pi', '2015-06-29', true, 3.14],
-			["e", '2015-06-29', false, 2.7182]
-		];
-		var filename ="excel.xlsx";
-		res.setHeader('Content-Disposition', 'attachment; filename='+encodeURIComponent(filename));
-		excel.createExcel({
-			data:conf,
-			savePath:"public/file/excel",
-			filename:filename,
-			cb:function(path){
-				excel.download(path,req, res,true);
+			{caption:'番号', type:'string'},
+			{caption:'名前', type:'string'},
+			{caption:'最低時間', type:'number'},
+			{caption:'最高時間', type:'number'},
+			{caption:'実際時間', type:'number'},
+			{caption:'見込み時間', type:'number'},
+			{caption:'状態', type:'string', 
+			beforeCellWrite:function(){
+    
+            return function(row, cellData, eOpt){
+                if (cellData == "超える"){
+                    eOpt.styleIndex = 1;
+                }  
+                else if(cellData == "不足"){
+                    eOpt.styleIndex = 2;
+                }
+				else
+				{
+					eOpt.styleIndex = 0;
+				}
+				console.log(eOpt.styleIndex);
+                return cellData;
+            } 
+        }()
 			}
-		});
+		];
+		
+		var sql = "SELECT e.no,e.name,a.*,wk.mintime,wk.maxtime FROM WK.T_ALLWORK a inner join WK.T_WKTIME wk on a.user = wk.user" 
+		sql  = sql  +" left join WK.T_USER user on a.user = user.id left join WK.T_EMPLOYEE e on user.employee = e.id  where a.month = ? order by user";
+		db.q(sql,[month],function(rows)
+			{
+				var datas = [];
+				console.log(rows);
+				var objs = JSON.parse(JSON.stringify(rows));
+				for(var i=0;i<rows.length;i++)
+				{
+					var obj = rows[i];
+					var data = [];
+					data.push(obj.no);
+					data.push(obj.name);
+					data.push(obj.mintime);
+					data.push(obj.maxtime);
+					data.push(obj.actualtime);
+					data.push(obj.alltime);
+					if(obj.alltime>obj.maxtime)
+					{
+						data.push("超える");
+					}
+					else if(obj.alltime<obj.mintime)
+					{
+						data.push("不足")
+					}
+						else
+					{
+							data.push("正常")
+					}
+
+					datas.push(data);
+				}
+				conf.rows = datas;
+				var filename ="excel.xlsx";
+				res.setHeader('Content-Disposition', 'attachment; filename='+encodeURIComponent(filename));
+				excel.createExcel({
+					data:conf,
+					savePath:"public/file/excel",
+					filename:filename,
+					cb:function(path){
+						excel.download(path,req, res,true);
+					}
+				});
 		 
+			});
+
+
+
 	}
 
 
@@ -112,9 +173,8 @@ exports.config = function (req, res, next) {
 		console.log(rtn);
 		if(rtn.affectedRows == 1)
 		{
-			console.log("success");//post方式用此获得数据
 			res.writeHead(200, {"Content-Type": "text/html;charset:utf-8"}); 
-			if(!isNaN(parseInt(rtn.insertId)))
+			if(parseInt(rtn.insertId)>0)
 			{
 				res.write("{success:true,id:"+rtn.insertId+",option:'a'}");
 			}
@@ -127,11 +187,11 @@ exports.config = function (req, res, next) {
 	};
 	if(option == "q")//查询
 	{
-		var sql  = "SELECT t.spot,t.id wktime,u.id user,s.starttime as cstarttime,s.endtime as cendtime,t.month,t.r0,t.r1,t.r2,t.r3,t.r4,t.r5,t.r6,t.mintime,t.maxtime,s.stime1,s.etime1,s.stime2,s.etime2,s.stime3,s.etime3,s.stime4,s.etime4,s.stime5,s.etime5 ";
-		sql +=" FROM WK.T_WKTIME t left join WK.T_USER u on t.user = u.id left join WK.T_SPOT s on t.spot = s.id where u.id = ? and t.month = ?";
-		var id = req.session.user;
+		var sql  = "SELECT t.spot,t.id wktime,u.id user,s.starttime as cstarttime,s.endtime as cendtime,t.r0,t.r1,t.r2,t.r3,t.r4,t.r5,t.r6,t.mintime,t.maxtime,s.stime1,s.etime1,s.stime2,s.etime2,s.stime3,s.etime3,s.stime4,s.etime4,s.stime5,s.etime5 ";
+		sql +=" FROM WK.T_WKTIME t left join WK.T_USER u on t.user = u.id left join WK.T_SPOT s on t.spot = s.id where u.id = ?";
+		var id = data.user;
 		var month =data.month;
-		var params = [id,month];
+		var params = [id];
 		console.log(sql);
 		db.q(sql,params,function(rows)
 		{
@@ -174,7 +234,33 @@ exports.config = function (req, res, next) {
 			db.u(data,func);
 		}
 	}
+};
+
+
+exports.atime = function(req, res, next)
+{
+	var me = this;
+	var data = req.body;
+	var sql = "SELECT ID as id FROM WK.T_ALLWORK WHERE USER =? and MONTH = ?"
+	var params =  [data.user,data.month];
+	data.table = "WK.T_ALLWORK";
+	db.q(sql,params,function(rows)
+	{	
+		if(rows.length>0)//有数据,更新
+		{
+			data.id =  JSON.parse(JSON.stringify(rows[0])).id;
+			db.u(data);
+		}
+		else
+		{
+			db.i(data);
+		}
+	});
+
 }
+
+
+
 exports.pwd = function (req, res, next) {
     var me = this;
 	var data = req.body;
@@ -184,9 +270,9 @@ exports.pwd = function (req, res, next) {
 		var sql = "SELECT ID FROM WK.T_USER WHERE ID =? and PASSWORD = ?"
 		var pwd = crypt(data.password);
 		var newPwd = crypt(data.newpassword);
-		var id = req.session.user;
+		var id =data.user;
 		console.log(sql);
-		console.log(req.session.user);
+		console.log(id);
 		console.log(pwd);//原有密码
 		console.log(newPwd);//原有密码
 		var params = [id,pwd];
@@ -197,7 +283,7 @@ exports.pwd = function (req, res, next) {
 				{
 					var data = {};
 					data.table = "`WK`.`T_USER`";
-					data.id = req.session.user;
+					data.id = id;
 					data.password = newPwd;
 					console.log(data.password)
 					db.u(data,function(rtndata){
@@ -320,7 +406,7 @@ exports.login = function (req, res, next) {
 	var data = req.body;
 	var name = data.name;
 	var pwd = crypt(data.password);
-	var sql = "SELECT u.ID,ROLE,email FROM WK.T_USER u inner join WK.T_EMPLOYEE e on u.employee = e.id WHERE e.NO =? and PASSWORD = ? and failedcount < ?"
+	var sql = "SELECT u.ID,ROLE,email,e.name FROM WK.T_USER u inner join WK.T_EMPLOYEE e on u.employee = e.id WHERE e.NO =? and PASSWORD = ? and failedcount < ?"
     console.log(sql);
 	console.log(name);
 	console.log(pwd);
@@ -335,6 +421,7 @@ exports.login = function (req, res, next) {
 				var data = JSON.parse(JSON.stringify(rows));
 				rtn = "{success:true,user:"+data[0].ID+",role:"+data[0].ROLE+"}"
 				req.session.user = data[0].ID;
+				req.session.role = data[0].ROLE;
 			}
 			res.writeHead(200, {"Content-Type": "text/html;charset:utf-8"}); 
 			res.write(rtn);
@@ -368,14 +455,13 @@ exports.adata =  function(month,datas)
 {
 	var cdata = [];
 	var y =  Number(month.substring(0,4));//年份
+	
 	var m =  Number(month.substring(4,6));//月份
 	var nm =  (m+1)%12;//下一个月
     var temp = new Date(y+"/"+nm+"/01");
 	temp.setHours(temp.getHours() - 3);//推后三小时
     var days =  temp.getDate();//获取下月1号多少天
-	var n_d = new Date().getDate();//获取当前日期
-	var n_m = new Date().getMonth()+1;//获取当前月份
-	console.log(n_m+"#"+m);
+	
 	for(var i=1;i<=days;i++)
 	{
 
@@ -384,16 +470,7 @@ exports.adata =  function(month,datas)
 		{
 			_day = "0" + _day;
 		}
-		var status = config.status.f;//未来
 		var _d = month+_day;//获取日期
-		if(exports.restdate(_d))//休息日，优先判断休息日
-		{
-			status = config.status.n;//不需要
-		}
-		else if(((n_d>=i)&&(n_m==m))||(n_m>m))//如果日子已过去,当前月份判断日子，以后月份全部
-		{
-			status = config.status.u;
-		}
 		//作成数据
 		var obj = {"date":_d,"starttime":"0000","endtime":"0000","worktime":0,"reason":0,"rest":0,"confim":"0","validate":"0","memo":""};
 		
@@ -403,7 +480,6 @@ exports.adata =  function(month,datas)
 			if(_d==date)
 			{
 				obj = datas[j];
-				status = config.status.d;//已经编写
 				datas.splice(j,1);
 				break;
 			}

@@ -10,10 +10,13 @@ Tool.prototype = {
 		return a;
     },
 	setHM : function(date,hm) {
-		var h =  parseInt(hm.substring(0,2));
-		var m =  parseInt(hm.substring(2,4));
-		date.setHours(h);
-		date.setMinutes(m);
+		if(hm&&hm.length==4)
+		{
+			var h =  parseInt(hm.substring(0,2));
+			var m =  parseInt(hm.substring(2,4));
+			date.setHours(h);
+			date.setMinutes(m);
+		}
     },
 	getHM:function(hm)
 	{

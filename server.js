@@ -83,10 +83,10 @@ var router = urlrouter(function (app) {
   app.post('/wk/do', wk.data);
   app.post('/login', wk.login);
   app.post('/pwd', wk.pwd)//修改密码,相关
-  app.post('/excel', wk.excel)//修改密码,相关
-  app.get('/excel', wk.excel)//修改密码,相关
+  app.get('/excel/:month', wk.excel)//出力Excel(:month REST方式前后台对应)
   app.post('/rspwd', wk.pwd)//重置密码,相关
   app.post('/config', wk.config)//设置
+  app.post('/atime', wk.atime)//合计时间
   app.get('/wk/:id', wk.view);
   app.get('/wk/:id/delete', wk.delete);
 });
