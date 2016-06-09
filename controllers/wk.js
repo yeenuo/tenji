@@ -43,9 +43,52 @@ exports.excel = function(req, res, next)
 		exports.exportExcel(req,res);
 	}
 };
+exports.alist = function(req,res)
+{	
+	if(req.session.role==1)
+	{
+		var sql = "SELECT e.no,e.name,e.id as eid,a.*,wk.mintime,wk.maxtime FROM WK.T_ALLWORK a inner join WK.T_WKTIME wk on a.user = wk.user" 
+		sql  = sql  +" left join WK.T_USER user on a.user = user.id left join WK.T_EMPLOYEE e on user.employee = e.id  where a.month = ? order by user";
+		var month = req.body.month;
+		db.q(sql,[month],function(rows)
+		{	
+			res.writeHead(200, {"Content-Type": "text/html;charset:utf-8"}); 
+			res.write(JSON.stringify(rows));
+			res.end();
+		});
+		}
+};
+exports.email = function(req,res)
+{	
+	if(req.session.role==1)
+	{
+		 var tomail = req.body.tomail || '###';
+		var sql = "SELECT e.email from WK.T_EMPLOYEE e where e.id in ("+tomail+")";
+		
+		db.q(sql,[],function(rows)
+		{	
+			if(rows.length>0)
+			{
+			res.writeHead(200, {"Content-Type": "text/html;charset:utf-8"}); 
+			res.write("{success:true}");
+			res.end();
+			}
 
+			for (var i=0;i< rows.length;i++ )
+			{
+				var obj = rows[i].email;
+				var obj = {};
+				obj.subject = "作業時間不足";
+				obj.html = "<font color='red'>作業時間不足、注意してください。</font>";
+				obj.from = "天時勤務";
+				obj.to = rows[i].email;
+				exports.mail(obj);
+			}
+			
+		});
+		}
+};
 exports.exportExcel=function(req,res){
-
 	var month =req.params.month;
 	var conf ={};
 	conf.stylesXmlFile = "lib/styles.xml";
@@ -83,7 +126,6 @@ exports.exportExcel=function(req,res){
 			{
 				var datas = [];
 				console.log(rows);
-				var objs = JSON.parse(JSON.stringify(rows));
 				for(var i=0;i<rows.length;i++)
 				{
 					var obj = rows[i];
@@ -242,7 +284,7 @@ exports.atime = function(req, res, next)
 	var me = this;
 	var data = req.body;
 	var sql = "SELECT ID as id FROM WK.T_ALLWORK WHERE USER =? and MONTH = ?"
-	var params =  [data.user,data.month];
+	var params =  [req.session.user,data.month];
 	data.table = "WK.T_ALLWORK";
 	db.q(sql,params,function(rows)
 	{	
@@ -267,10 +309,10 @@ exports.pwd = function (req, res, next) {
 	var option = data.option;
 	if(option == "c")//修改密码
 	{
-		var sql = "SELECT ID FROM WK.T_USER WHERE ID =? and PASSWORD = ?"
+		var sql = "SELECT ID,EMAIL email FROM WK.T_USER WHERE ID =? and PASSWORD = ?"
 		var pwd = crypt(data.password);
 		var newPwd = crypt(data.newpassword);
-		var id =data.user;
+		var id =req.session.user;
 		console.log(sql);
 		console.log(id);
 		console.log(pwd);//原有密码
@@ -281,6 +323,7 @@ exports.pwd = function (req, res, next) {
 				var rtn = "{success:false}"
 				if(rows.length>0)//有数据
 				{
+					var email = rows[0].email;
 					var data = {};
 					data.table = "`WK`.`T_USER`";
 					data.id = id;
@@ -294,9 +337,9 @@ exports.pwd = function (req, res, next) {
 									console.log(rtn)
 									var obj = {};
 									obj.subject = "修改密码";
-									obj.html = "&lt;p&gt;密码已修改&lt;/p&gt;";
-									obj.from = "天时勤务";
-									obj.to = "javaandnet@gmail.com";
+									obj.html = "密码已修改";
+									obj.from = "天時勤務";
+									obj.to = email;
 									exports.mail(obj);
 
 									res.writeHead(200, {"Content-Type": "text/html;charset:utf-8"}); 
@@ -341,8 +384,8 @@ exports.pwd = function (req, res, next) {
 						{
 									var obj = {};
 									obj.subject = "重置密码";
-									obj.html = "&lt;p&gt;密码已重置为"+pwd+"&lt;/p&gt;";
-									obj.from = "天时勤务";
+									obj.html = "密码已重置为"+pwd+"";
+									obj.from = "天時勤務";
 									obj.to = qdata.email;
 									obj.func = rtnInfo(res,"{success:true}");
 									exports.mail(obj);
@@ -433,7 +476,7 @@ exports.list = function (req, res, next) {
 	var me = this;
 	var data = req.body;
 	var month = data.month;
-	var user = data.user;
+	var user = req.session.user;
 	//month = "201606";
 	//user = "1";
 	//SELECT *  FROM WK.T_WORK WHERE SUBSTRING(date,1,6) = '201606' and EMPLOYEE = '1' 

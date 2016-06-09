@@ -86,7 +86,9 @@ var router = urlrouter(function (app) {
   app.get('/excel/:month', wk.excel)//出力Excel(:month REST方式前后台对应)
   app.post('/rspwd', wk.pwd)//重置密码,相关
   app.post('/config', wk.config)//设置
+   app.post('/wk/email', wk.email)//合计时间
   app.post('/atime', wk.atime)//合计时间
+  app.post('/wk/alist', wk.alist)//合计列表
   app.get('/wk/:id', wk.view);
   app.get('/wk/:id/delete', wk.delete);
 });

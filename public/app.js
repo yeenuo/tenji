@@ -42,6 +42,7 @@ var app = Ext.application({
 		me.index = 0;//当前数据序号，实际用日期也可取。
 		me.month = Ext.Date.format(new Date(),"Ym");//当前月份
 		me.config = {};
+		me.tomail = "";//需要发送mail的人，作业时间不足。
 	},
     launch: function() {
     	var me = this;
@@ -76,6 +77,7 @@ var app = Ext.application({
     	me.panel_list = me.getList();//列表
 		me.panel_input = me.getInput();//录入
 		me.panel_config = me.getConfig();//设定
+		me.panel_admin = me.getAdmin();
     	me.mainPanel = Ext.create('Ext.TabPanel', {
     	    fullscreen: true,
     	    tabBarPosition: 'bottom',
@@ -88,7 +90,8 @@ var app = Ext.application({
 				me.panel_list,
 				me.panel_input,
 				me.panel_config,
-				me.getLogin()
+				me.getLogin(),
+				me.panel_admin
     	    ]
     	});
 		//Ext.getCmp('panel_main').setActiveItem(3);//初次启动，登录页面
@@ -106,6 +109,20 @@ var app = Ext.application({
 			}
 		});
     },
+	//管理员
+	getAdmin:function()
+	{
+		var me=this;
+    	var listAdmin =  me.getAdminConfiguration();
+    	return {
+            title: '管理者',
+            iconCls: 'star',
+			id : 'tab_admin',
+			layout : 'card',
+			hidden:true,
+			items: [listAdmin]
+    	};
+	},
 	//保存配置数据
 	saveConfigData:function()
 	{
@@ -349,15 +366,16 @@ var app = Ext.application({
 									me.role = obj.role;
 									if(me.role == 1)
 									 {
-										Ext.getCmp("btn_excel").setHidden(false);
+										Ext.getCmp("panel_main").getTabBar().items.items[4].show();
+										me.adminstore.load();
 									 }
 									 else
 									 {
-										Ext.getCmp("btn_excel").setHidden(true);
+										 Ext.getCmp("panel_main").getTabBar().items.items[4].hide();
 									 }
 									 Ext.getCmp("lbl_user_name").setHtml(data.name);
 									 Ext.getCmp("month").setValue(new Date());
-									me.loadConfigData(
+									me.loadConfigData(//读取配置数据
 										function(rtn)
 										 {
 											if(rtn.success)
@@ -367,7 +385,15 @@ var app = Ext.application({
 													'user':me.user, 
 													'month':me.month}
 												});
-												Ext.getCmp('panel_main').setActiveItem(0);
+												if(me.role == 1)
+												 {
+													Ext.getCmp('panel_main').setActiveItem(4);
+												 }
+												 else
+												 {
+													 Ext.getCmp('panel_main').setActiveItem(0);
+												 }
+												
 											 }
 											 else
 											 {
@@ -1132,6 +1158,210 @@ var app = Ext.application({
 		data.status = status;
 		return data;
 	},
+	
+getAdminConfiguration: function() {
+		var me = this;
+		
+		var month = Ext.create('Ext.field.DatePicker', {
+					id: 'month_admin',
+					fieldLabel:　'月份',
+					width : 80,
+					xtype:　'datepickerfield',
+					dateFormat :"Y-m",
+					editable　:　false
+					//value:new Date().dateFormat('Y-m')
+		});
+		var monthPicker = Ext.create('Ext.picker.Date', {
+			yearFrom: 2016,
+			yearTo  : 2050,
+			slotOrder:['year','month']
+		});
+
+	   month.setPicker(monthPicker);
+	   month.setValue(new Date());
+      
+	   month.on("change",function(){
+			me.adminstore.load({params :
+				{
+					'month':Ext.Date.format(Ext.getCmp("month_admin").getValue(),"Ym")
+				}
+			});
+		});
+
+		var btn_excel = 
+				{
+					xtype : 'button',	
+					text : 'Excel',
+					id:"btn_excel",
+					iconCls:'organize',
+					name:"btn_excel",
+					align:'right',
+					handler:function()
+					{
+							var month = Ext.Date.format(Ext.getCmp("month_admin").getValue(),"Ym");
+							window.open("/excel/"+month, '_blank');
+					}
+				};
+
+				var btn_sort = 
+				{
+					xtype : 'button',	
+					text : 'Sort',
+					id:"btn_sort",
+					iconCls:'arrow_down',
+					name:"btn_sort",
+					align:'left',
+					handler:function()
+					{
+							me.adminstore.sort([
+							{
+								property : 'status',
+								direction: 'ASC'
+							},
+							{
+								property : 'no',
+								direction: 'ASC'
+							}
+						]);
+					}
+				};
+
+				var btn_chart = 
+				{
+					xtype : 'button',	
+					text : 'chart',
+					id:"btn_chart",
+					iconCls:'info',
+					name:"btn_chart",
+					align:'left',
+					handler:function()
+					{
+						
+					}
+				};
+		var btn_email  =  
+		{
+			xtype : 'button',	
+			text : 'Email',
+			iconCls:'reply',
+			id:"btn_email",
+			name:"btn_email",
+			align:'right',
+			handler:function()
+			{
+				var data = {"tomail":me.tomail};
+				Ext.Ajax.request({
+				url: '../../wk/email',
+				method :'POST',
+				params: data,
+				success: function(response, opts) {
+					var obj = Ext.decode(response.responseText);
+					if(obj.success)
+					{
+						alert("発送成功。");
+					}
+				},
+				failure: function(response, opts) {
+				  console.log('server erro:'+ response.status);
+				}
+				});
+			}
+		};
+
+        me.adminstore = Ext.create('Ext.data.Store', {
+            //give the store some fields
+            fields: ['id','eid','no','name','month','actualtime','alltime','mintime','maxtime'],
+            sorters: 'no',			
+				listeners:{
+				load:function(st, records)
+				{
+					me.tomail = "";
+					for(var i  = 0;i<records.length;i++)
+					{
+						var v = records[i].data;
+						v.status = 0;
+						if(v.alltime<v.mintime)
+						{
+							v.status = 1;//不足,需要提醒
+							me.tomail = me.tomail + ","+v.eid+"";
+						}
+						else if(v.alltime>v.maxtime)
+						{
+							v.status = 2;
+						}
+					}
+					if(me.tomail.length>0)
+					{
+							me.tomail = me.tomail.substr(1, me.tomail.length);//去除#
+					}
+					
+				}
+			},
+            proxy: {
+            	type: 'ajax',
+            	url: '../../wk/alist',
+    	        reader: {
+    	        	type: 'json',
+    	        	root: 'data'
+    	        },
+				actionMethods: {
+                create : 'POST',
+                read   : 'POST', // by default GET
+                update : 'POST',
+                destroy: 'POST'
+            },
+    	        extraParams: {
+    	            'month':Ext.Date.format(Ext.getCmp("month_admin").getValue(),"Ym")
+    	    	}
+            }
+        });
+
+        return {
+			items: [
+			{
+              docked: 'top',
+              xtype: 'titlebar',
+              items: [
+                 month
+				  ,btn_sort
+				  //,btn_chart
+				  ,btn_email
+				 ,btn_excel
+				]
+			 }
+			],
+			id:'list_admin',
+            xtype: 'list',
+            scrollable: {
+                direction: 'vertical'
+            },
+			variableHeights: true,
+            itemHeight  :10,
+			store:me.adminstore,
+            itemTpl: new Ext.XTemplate(
+				//'<table><tr><td height="40" bgcolor ="{status}">{[this.date(values.date)]}【{starttime}~{endtime}】:{worktime} ({[this.rest(values.rest)]})</td></tr></table>',
+				'<div  class = "{[this.status(values)]}" style="width:100%;height:100%">{name}:{mintime}~{maxtime}【 {actualtime}⇒{alltime}】</div>',
+				{
+					status: function(v){
+						var bgcolor = "";
+						if(v.alltime<v.mintime)
+						{
+							 bgcolor = "div_min";
+						}
+						else if(v.alltime>v.maxtime)
+						{
+							bgcolor = "div_max";
+						}
+						console.log(v);
+						console.log(bgcolor);
+					   return bgcolor;
+					}
+				}
+			)
+        };
+    },
+
+
 
     getListConfiguration: function() {
 		var me = this;
@@ -1189,20 +1419,6 @@ var app = Ext.application({
 					xtype:　'label',
 					html:　"見込み:"
 		};
-
-		var btn_excel = 
-				{
-					xtype : 'button',	
-					text : 'Excel',
-					id:"btn_excel",
-					name:"btn_excel",
-					align:'right',
-					hidden:true,
-					handler:function()
-					{
-							window.open("/excel/"+me.month, '_blank');
-					}
-				};
 
 		var lbl_user_name = 
 			{
@@ -1270,7 +1486,6 @@ var app = Ext.application({
 				  ,actualtime
 				 ,all_time
 				  ,lbl_user_name
-				 ,btn_excel
 				]
 			 }
 			],

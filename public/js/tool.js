@@ -60,3 +60,34 @@ Tool.prototype = {
 		return null;
 	}
 };
+/**
+Sencha Touch iconCls Values
+---------------------------
+
+action
+add
+arrow_down
+arrow_left
+arrow_right
+arrow_up
+bookmarks
+compose
+delete
+download
+favorites
+home
+info
+locate
+maps
+more
+organize
+refresh
+reply
+search
+settings
+star
+team
+time
+trash
+user
+**/
