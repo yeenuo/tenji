@@ -15,9 +15,9 @@ exports.session_secret = 'todo session secret';
 
 exports.db ={
     host: 'japan.cnqxo1udr78c.ap-northeast-1.rds.amazonaws.com',
-    user: 'yeenuo',
-    password: 'MUsec34#$',
-    database:'japan',
+    user: 'tenji',
+    password: 'tenji456$%^',
+    database:'WK',
     port: 3306
 };
 
@@ -32,8 +32,7 @@ exports.status ={
 exports.localdb ={
     host: '127.0.0.1',
     user: 'root',
-    password: 'tenji123',
-    database:'WK',
+    password: 'tenji123!@#',
     port: 3306
 };
 

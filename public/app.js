@@ -18,6 +18,7 @@ var app = Ext.application({
     //require any components/classes what we will use in our example
     requires: [
         'Ext.MessageBox',
+		 'OpenCharts.OpenCharts',
         'Ext.data.Store'
     ],
 
@@ -39,6 +40,7 @@ var app = Ext.application({
 		me.user = -1;
 		me.data = {};//当前选中data,便于删除修改添加用
 		me.datas = [];
+		me.admindatas =[];//合计数据
 		me.index = 0;//当前数据序号，实际用日期也可取。
 		me.month = Ext.Date.format(new Date(),"Ym");//当前月份
 		me.config = {};
@@ -48,7 +50,6 @@ var app = Ext.application({
     	var me = this;
 		this.tool = new Tool();
 		me.initConfig();
-
 		me.status ={
 			f:'yellow',//future未来
 			d:'green',//done 已完成
@@ -82,6 +83,15 @@ var app = Ext.application({
     	    fullscreen: true,
     	    tabBarPosition: 'bottom',
     	    id:'panel_main',
+			showAnimation:{  
+                   type : 'cube'  
+               },  
+               layout: {  
+                   type: 'card',  
+                   animation: {  
+                       type : 'cube'  
+                   }  
+               },
     	    defaults: {
     	        styleHtmlContent: true
     	    },
@@ -1225,6 +1235,41 @@ getAdminConfiguration: function() {
 						]);
 					}
 				};
+				var chart = Ext.create('OpenCharts.charts.PieChart', {
+						chartOptions: {
+								x: function(d) { return d.label; },
+								y: function(d) { return d.value; },
+								showLabels: true
+							}
+						});
+	
+
+						
+						var popup = new Ext.Panel({  
+							floating: true,  
+							centered: true, 
+							modal: true,  
+							width: 300,  
+							height: 400,  
+							styleHtmlContent: true,  
+							items: [
+										{
+										  docked: 'top',
+										  xtype: 'titlebar',
+										  items: [
+											  {  
+												text: '閉じる', 
+													align:"left",
+												handler: function(){  
+													popup.hide();  
+												} 
+												}															
+											]
+										 }
+									]
+						}); 
+						popup.add(chart);
+						
 
 				var btn_chart = 
 				{
@@ -1234,8 +1279,30 @@ getAdminConfiguration: function() {
 					iconCls:'info',
 					name:"btn_chart",
 					align:'left',
-					handler:function()
+					handler:function(btn)
 					{
+
+						popup.showBy(btn);
+					
+						//注意顺序 先生成 再装载数据
+						var co = {a:0,b:0,c:0};
+						for(var i =0;i<me.admindatas.length;i++)
+						{
+							var obj = me.admindatas[i];
+							if(obj.status==0)
+							{
+								co.a++;
+							}
+							else if(obj.status==1)
+							{
+								co.b++;
+							}
+							else
+							{
+								co.c++;
+							}
+						}
+						chart.renderChartData([{"label":"正常","value":co.a},{"label":"不足","value":co.b},{"label":"超える","value":co.c}]);
 						
 					}
 				};
@@ -1276,6 +1343,7 @@ getAdminConfiguration: function() {
 				load:function(st, records)
 				{
 					me.tomail = "";
+					me.admindatas =[];
 					for(var i  = 0;i<records.length;i++)
 					{
 						var v = records[i].data;
@@ -1289,6 +1357,7 @@ getAdminConfiguration: function() {
 						{
 							v.status = 2;
 						}
+						me.admindatas.push(v);
 					}
 					if(me.tomail.length>0)
 					{
@@ -1324,7 +1393,7 @@ getAdminConfiguration: function() {
               items: [
                  month
 				  ,btn_sort
-				  //,btn_chart
+				  ,btn_chart
 				  ,btn_email
 				 ,btn_excel
 				]
