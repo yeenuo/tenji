@@ -113,7 +113,8 @@ var app = Ext.application({
 			}
 			else if(value.id=="tab_input"){
 				if(!me.data.date)
-				{
+				{		
+					
 						Ext.getCmp('panel_main').setActiveItem(0);//当入力数据为空时，List页面
 				}
 			}
@@ -1175,7 +1176,7 @@ getAdminConfiguration: function() {
 		var month = Ext.create('Ext.field.DatePicker', {
 					id: 'month_admin',
 					fieldLabel:　'月份',
-					width : 80,
+					width : 120,
 					xtype:　'datepickerfield',
 					dateFormat :"Y-m",
 					editable　:　false
@@ -1201,7 +1202,7 @@ getAdminConfiguration: function() {
 		var btn_excel = 
 				{
 					xtype : 'button',	
-					text : 'Excel',
+					text : 'E',
 					id:"btn_excel",
 					iconCls:'organize',
 					name:"btn_excel",
@@ -1216,7 +1217,7 @@ getAdminConfiguration: function() {
 				var btn_sort = 
 				{
 					xtype : 'button',	
-					text : 'Sort',
+					text : 'S',
 					id:"btn_sort",
 					iconCls:'arrow_down',
 					name:"btn_sort",
@@ -1237,14 +1238,14 @@ getAdminConfiguration: function() {
 				};
 				var chart = Ext.create('OpenCharts.charts.PieChart', {
 						chartOptions: {
-								x: function(d) { return d.label; },
+								x: function(d) { return d.label+"("+d.value+")"; },
 								y: function(d) { return d.value; },
-								showLabels: true
+								 staggerLabels: true,
+								 tooltips: false,
+								 showValues: true
 							}
 						});
-	
-
-						
+			
 						var popup = new Ext.Panel({  
 							floating: true,  
 							centered: true, 
@@ -1274,7 +1275,7 @@ getAdminConfiguration: function() {
 				var btn_chart = 
 				{
 					xtype : 'button',	
-					text : 'chart',
+					text : 'C',
 					id:"btn_chart",
 					iconCls:'info',
 					name:"btn_chart",
@@ -1309,7 +1310,7 @@ getAdminConfiguration: function() {
 		var btn_email  =  
 		{
 			xtype : 'button',	
-			text : 'Email',
+			text : 'M',
 			iconCls:'reply',
 			id:"btn_email",
 			name:"btn_email",
@@ -1451,7 +1452,7 @@ getAdminConfiguration: function() {
 		var month = Ext.create('Ext.field.DatePicker', {
 					id: 'month',
 					fieldLabel:　'月份',
-					width : 80,
+					width : 120,
 					xtype:　'datepickerfield',
 					dateFormat :"Y-m",
 					editable　:　false
