@@ -151,12 +151,14 @@ exports.exportExcel=function(req,res){
 
 					datas.push(data);
 				}
+				///public/file/excel/excel.xlsx
 				conf.rows = datas;
+				conf.stylesXmlFile = __dirname+"/styles.xml";
 				var filename ="excel.xlsx";
 				res.setHeader('Content-Disposition', 'attachment; filename='+encodeURIComponent(filename));
 				excel.createExcel({
-					data:conf,
-					savePath:"public/file/excel",
+					data:conf,			
+					savePath:__dirname+"/file/",
 					filename:filename,
 					cb:function(path){
 						excel.download(path,req, res,true);
